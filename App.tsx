@@ -6,15 +6,26 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-goog
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppShell } from './src/app/AppShell';
-import { colors } from './src/shared/theme';
+import { ThemeProvider, useTheme } from './src/shared/theme/ThemeContext';
 
 // A splash nativa cobre o carregamento das fontes, sem tela intermediária.
 SplashScreen.preventAutoHideAsync();
+
+function Root({ ready }: { ready: boolean }) {
+  const { colors, isDark } = useTheme();
+
+  return (
+    <>
+      {ready ? <AppShell /> : <View style={{ flex: 1, backgroundColor: colors.background }} />}
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+    </>
+  );
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -24,19 +35,19 @@ export default function App() {
     Inter_500Medium,
     Inter_600SemiBold,
   });
+  const [themeReady, setThemeReady] = useState(false);
+  const handleThemeReady = useCallback(() => setThemeReady(true), []);
+  const ready = fontsLoaded && themeReady;
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hide();
-  }, [fontsLoaded]);
+    if (ready) SplashScreen.hide();
+  }, [ready]);
 
   return (
     <SafeAreaProvider>
-      {fontsLoaded ? (
-        <AppShell />
-      ) : (
-        <View style={{ flex: 1, backgroundColor: colors.background }} />
-      )}
-      <StatusBar style="light" />
+      <ThemeProvider onReady={handleThemeReady}>
+        <Root ready={ready} />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

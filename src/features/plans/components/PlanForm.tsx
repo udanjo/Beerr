@@ -3,8 +3,11 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ExpirySheet } from './ExpirySheet';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
+import { dateKeyFromToday, formatDateKey } from '../services/planExpiry';
 import { MAX_DAYS, MUSCLE_GROUPS, type MuscleGroup, type NewPlan } from '../types';
 
 interface PlanFormProps {
@@ -16,10 +19,20 @@ const DAY_LABELS = 'ABCDEFG';
 const DEFAULT_NAME = 'Meu plano';
 
 const INITIAL_DAYS = 2;
+const EXPIRY_PRESETS = [
+  { label: '4 sem', days: 28 },
+  { label: '8 sem', days: 56 },
+  { label: '12 sem', days: 84 },
+];
 
 export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
+  // Prazo opcional: ausente = sem prazo; `presetDays` marca o atalho usado (data fixada no toque).
+  const [expiresAt, setExpiresAt] = useState<string | undefined>(undefined);
+  const [presetDays, setPresetDays] = useState<number | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [groupsByDay, setGroupsByDay] = useState<MuscleGroup[][]>(() =>
     Array.from({ length: INITIAL_DAYS }, () => []),
   );
@@ -60,6 +73,7 @@ export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
   const handleSubmit = () => {
     onSubmit({
       name: name.trim() || DEFAULT_NAME,
+      expiresAt,
       days: groupsByDay.map((muscleGroups, index) => ({
         label: DAY_LABELS[index],
         muscleGroups,
@@ -95,6 +109,56 @@ export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
           placeholderTextColor={colors.textMuted}
           accessibilityLabel="Nome do plano"
         />
+
+        <Text style={styles.label}>PRAZO (OPCIONAL)</Text>
+        <View style={styles.row}>
+          <Pressable
+            onPress={() => {
+              setExpiresAt(undefined);
+              setPresetDays(null);
+            }}
+            style={[styles.chip, !expiresAt && styles.chipSelected]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !expiresAt }}
+          >
+            <Text style={[styles.chipText, !expiresAt && styles.chipTextSelected]}>Sem prazo</Text>
+          </Pressable>
+          {EXPIRY_PRESETS.map((preset) => {
+            const selected = presetDays === preset.days;
+            return (
+              <Pressable
+                key={preset.days}
+                onPress={() => {
+                  setExpiresAt(dateKeyFromToday(preset.days));
+                  setPresetDays(preset.days);
+                }}
+                style={[styles.chip, selected && styles.chipSelected]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                  {preset.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            onPress={() => setIsPickerOpen(true)}
+            style={[styles.chip, !!expiresAt && presetDays === null && styles.chipSelected]}
+            accessibilityRole="button"
+            accessibilityLabel="Escolher data do prazo"
+          >
+            <Text
+              style={[
+                styles.chipText,
+                !!expiresAt && presetDays === null && styles.chipTextSelected,
+              ]}
+            >
+              Data…
+            </Text>
+          </Pressable>
+        </View>
+        {expiresAt && <Text style={styles.hint}>Vence em {formatDateKey(expiresAt)}</Text>}
 
         <Text style={styles.label}>TREINOS</Text>
         {groupsByDay.map((groups, dayIndex) => {
@@ -167,13 +231,26 @@ export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
             accessibilityRole="button"
             accessibilityLabel="Adicionar treino"
           >
-            <Ionicons name="add" size={20} color={colors.primary} />
+            <Ionicons name="add" size={20} color={colors.accent} />
             <Text style={styles.addText}>Adicionar treino</Text>
           </Pressable>
         ) : (
           <Text style={styles.hint}>Máximo de {MAX_DAYS} treinos</Text>
         )}
       </ScrollView>
+
+      {isPickerOpen && (
+        <ExpirySheet
+          visible
+          value={expiresAt}
+          onConfirm={(next) => {
+            setExpiresAt(next);
+            setPresetDays(null);
+            setIsPickerOpen(false);
+          }}
+          onClose={() => setIsPickerOpen(false)}
+        />
+      )}
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <PrimaryButton label="Criar plano" onPress={handleSubmit} />
@@ -182,7 +259,8 @@ export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -281,10 +359,10 @@ const styles = StyleSheet.create({
     gap: 6,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   addText: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.bodyMedium,
     fontSize: fontSize.md,
   },
@@ -296,7 +374,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dayTitle: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.displayBold,
     fontSize: 22,
     letterSpacing: 0.5,
@@ -318,4 +396,4 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.background,
   },
-});
+  });

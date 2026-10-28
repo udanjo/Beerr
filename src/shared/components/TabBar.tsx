@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, fonts, radius } from '../theme';
+import { fonts, radius, type Palette } from '../theme';
+import { useThemedStyles } from '../theme/ThemeContext';
 
 export interface TabItem<T extends string> {
   value: T;
@@ -17,6 +18,7 @@ interface TabBarProps<T extends string> {
 }
 
 export function TabBar<T extends string>({ tabs, value, onChange }: TabBarProps<T>) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   return (
@@ -49,7 +51,8 @@ export function TabBar<T extends string>({ tabs, value, onChange }: TabBarProps<
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   wrapper: {
     position: 'absolute',
     left: 16,
@@ -83,4 +86,4 @@ const styles = StyleSheet.create({
   labelSelected: {
     color: colors.text,
   },
-});
+  });

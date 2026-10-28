@@ -2,7 +2,8 @@ import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radius } from '../../../shared/theme';
+import { radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { imageUrl } from '../services/exerciseLibrary';
 
 interface ExerciseAnimationProps {
@@ -14,6 +15,7 @@ const FRAME_INTERVAL_MS = 800;
 
 /** Alterna as imagens (posição inicial e final) para simular a animação do exercício. */
 export function ExerciseAnimation({ images, style }: ExerciseAnimationProps) {
+  const { styles } = useThemedStyles(makeStyles);
   const [frame, setFrame] = useState(0);
 
   useEffect(() => {
@@ -37,7 +39,8 @@ export function ExerciseAnimation({ images, style }: ExerciseAnimationProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: radius.lg,
@@ -52,4 +55,4 @@ const styles = StyleSheet.create({
   hidden: {
     opacity: 0,
   },
-});
+  });

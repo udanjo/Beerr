@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius } from '../../../shared/theme';
+import { radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { getLibraryExercise, imageUrl } from '../services/exerciseLibrary';
 
 interface ExerciseThumbProps {
@@ -11,6 +12,7 @@ interface ExerciseThumbProps {
 
 /** Miniatura quadrada do exercício; sem imagem quando o exercício foi digitado à mão. */
 export function ExerciseThumb({ libraryId, size = 76 }: ExerciseThumbProps) {
+  const { styles } = useThemedStyles(makeStyles);
   const exercise = libraryId ? getLibraryExercise(libraryId) : undefined;
   const firstImage = exercise?.images[0];
 
@@ -28,7 +30,8 @@ export function ExerciseThumb({ libraryId, size = 76 }: ExerciseThumbProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     backgroundColor: colors.white,
     borderRadius: radius.lg,
@@ -39,4 +42,4 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-});
+  });

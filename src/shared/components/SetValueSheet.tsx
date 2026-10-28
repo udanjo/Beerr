@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, fontSize, fonts, radius } from '../theme';
+import { fontSize, fonts, radius, type Palette } from '../theme';
+import { useThemedStyles } from '../theme/ThemeContext';
 import { BottomSheet } from './BottomSheet';
 import { PrimaryButton } from './PrimaryButton';
 import { WheelPicker } from './WheelPicker';
@@ -41,6 +42,7 @@ function buildValues(max: number, step: number, start: number, current: number):
 }
 
 export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }: SetValueSheetProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const [repsValue, setRepsValue] = useState(reps);
   const [weightValue, setWeightValue] = useState(weight);
   const [isTyping, setIsTyping] = useState(false);
@@ -130,7 +132,8 @@ export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }:
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   title: {
     color: colors.text,
     fontFamily: fonts.displayBold,
@@ -190,4 +193,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 0.4,
   },
-});
+  });

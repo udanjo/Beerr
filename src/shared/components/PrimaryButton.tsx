@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, fonts, radius } from '../theme';
+import { fonts, radius, type Palette } from '../theme';
+import { useThemedStyles } from '../theme/ThemeContext';
 
 interface PrimaryButtonProps {
   label: string;
@@ -10,6 +11,7 @@ interface PrimaryButtonProps {
 }
 
 export function PrimaryButton({ label, onPress, disabled = false, style }: PrimaryButtonProps) {
+  const { styles } = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -29,7 +31,8 @@ export function PrimaryButton({ label, onPress, disabled = false, style }: Prima
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   button: {
     minHeight: 52,
     alignItems: 'center',
@@ -50,4 +53,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     letterSpacing: 0.5,
   },
-});
+  });

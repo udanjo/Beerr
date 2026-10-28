@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { SegmentedTabs } from '../../../shared/components/SegmentedTabs';
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { MUSCLE_GROUPS, type MuscleGroup } from '../../plans/types';
 import {
   TOTAL_EXERCISES,
@@ -52,6 +53,7 @@ export function ExerciseLibrary({
   onConfirm,
   onClose,
 }: ExerciseLibraryProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<LibraryTab>('all');
@@ -187,7 +189,7 @@ export function ExerciseLibrary({
             accessibilityRole="button"
             accessibilityLabel="Voltar para grupos musculares"
           >
-            <Ionicons name="chevron-back" size={20} color={colors.primary} />
+            <Ionicons name="chevron-back" size={20} color={colors.accent} />
             <Text style={styles.backText}>{openGroup}</Text>
           </Pressable>
         )}
@@ -271,6 +273,7 @@ const ExerciseListRow = memo(function ExerciseListRow({
   onToggle,
   onOpen,
 }: ExerciseListRowProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={() => (selectable ? onToggle(exercise.id) : onOpen(exercise.id))}
@@ -303,7 +306,8 @@ const ExerciseListRow = memo(function ExerciseListRow({
   );
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -362,7 +366,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   backText: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.displayBold,
     fontSize: 20,
   },
@@ -437,7 +441,7 @@ const styles = StyleSheet.create({
   },
   checkboxSelected: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   groupRow: {
     flexDirection: 'row',
@@ -457,7 +461,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   groupBadgeText: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.displayBold,
     fontSize: 28,
   },
@@ -470,4 +474,4 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     backgroundColor: colors.background,
   },
-});
+  });

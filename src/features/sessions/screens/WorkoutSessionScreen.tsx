@@ -11,7 +11,8 @@ import {
   SetValueSheet,
   formatWeight,
 } from '../../../shared/components/SetValueSheet';
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseDetailModal } from '../../exercises/components/ExerciseDetail';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
 import { displayDayLabel, type Exercise, type Plan, type PlanDay } from '../../plans/types';
@@ -71,6 +72,7 @@ export function WorkoutSessionScreen({
   onFinish,
   onExit,
 }: WorkoutSessionScreenProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   useKeepAwake();
   const insets = useSafeAreaInsets();
 
@@ -287,7 +289,7 @@ export function WorkoutSessionScreen({
                 accessibilityState={{ expanded: false }}
                 accessibilityLabel={`${item.exercise.name} concluído. Toque para reabrir`}
               >
-                <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
                 <Text style={styles.collapsedName} numberOfLines={1}>
                   {item.exercise.name}
                 </Text>
@@ -380,7 +382,7 @@ export function WorkoutSessionScreen({
                   accessibilityRole="button"
                   accessibilityLabel="Adicionar série"
                 >
-                  <Ionicons name="add" size={20} color={colors.primary} />
+                  <Ionicons name="add" size={20} color={colors.accent} />
                   <Text style={styles.addText}>ADICIONAR SÉRIE</Text>
                 </Pressable>
                 <Pressable
@@ -430,7 +432,8 @@ export function WorkoutSessionScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -579,7 +582,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
   },
   setRowDone: {
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   indexCol: {
     width: 56,
@@ -633,7 +636,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   addText: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.displayBold,
     fontSize: 16,
     letterSpacing: 0.4,
@@ -671,4 +674,4 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.background,
   },
-});
+  });

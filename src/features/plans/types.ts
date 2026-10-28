@@ -55,9 +55,12 @@ export interface Plan {
   name: string;
   days: PlanDay[];
   createdAt: string;
+  /** Último dia de validade (AAAA-MM-DD, data local); ausente = sem prazo. */
+  expiresAt?: string;
 }
 
 export interface NewPlan {
   name: string;
+  expiresAt?: string;
   days: Pick<PlanDay, 'label' | 'muscleGroups'>[];
 }

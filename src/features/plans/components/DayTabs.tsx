@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { colors, fonts, radius } from '../../../shared/theme';
+import { fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { displayDayLabel, type PlanDay } from '../types';
 
 interface DayTabsProps {
@@ -10,6 +11,7 @@ interface DayTabsProps {
 }
 
 export function DayTabs({ days, activeDayId, onSelect }: DayTabsProps) {
+  const { styles } = useThemedStyles(makeStyles);
   return (
     <ScrollView
       horizontal
@@ -39,7 +41,8 @@ export function DayTabs({ days, activeDayId, onSelect }: DayTabsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   scroll: {
     flexGrow: 0,
     flexShrink: 0,
@@ -68,4 +71,4 @@ const styles = StyleSheet.create({
   labelSelected: {
     color: colors.text,
   },
-});
+  });

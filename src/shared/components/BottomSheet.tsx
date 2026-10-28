@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, radius } from '../theme';
+import { radius, type Palette } from '../theme';
+import { useThemedStyles } from '../theme/ThemeContext';
 
 interface BottomSheetProps {
   visible: boolean;
@@ -11,6 +12,7 @@ interface BottomSheetProps {
 }
 
 export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
+  const { styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   return (
@@ -32,7 +34,8 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -60,4 +63,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginBottom: 16,
   },
-});
+  });

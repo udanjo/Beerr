@@ -31,6 +31,7 @@ export function usePlans() {
       const plan: Plan = {
         id: createId(),
         name: input.name,
+        expiresAt: input.expiresAt,
         createdAt: new Date().toISOString(),
         days: input.days.map((day) => ({ ...day, id: createId(), exercises: [] })),
       };
@@ -42,6 +43,12 @@ export function usePlans() {
 
   const removePlan = useCallback(
     (id: string) => persist(plans.filter((plan) => plan.id !== id)),
+    [plans, persist],
+  );
+
+  const setPlanExpiry = useCallback(
+    (planId: string, expiresAt: string | undefined) =>
+      persist(plans.map((plan) => (plan.id === planId ? { ...plan, expiresAt } : plan))),
     [plans, persist],
   );
 
@@ -60,5 +67,5 @@ export function usePlans() {
     [plans, persist],
   );
 
-  return { plans, isLoading, error, addPlan, removePlan, setDayExercises };
+  return { plans, isLoading, error, addPlan, removePlan, setPlanExpiry, setDayExercises };
 }

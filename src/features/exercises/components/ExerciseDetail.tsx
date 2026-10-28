@@ -4,7 +4,8 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SegmentedTabs } from '../../../shared/components/SegmentedTabs';
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { getLibraryExercise, type LibraryExercise } from '../services/exerciseLibrary';
 import { ExerciseAnimation } from './ExerciseAnimation';
 
@@ -37,6 +38,7 @@ export function ExerciseDetailModal({ libraryId, onClose }: ExerciseDetailModalP
 }
 
 function ExerciseDetail({ exercise, onClose }: { exercise: LibraryExercise; onClose: () => void }) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<DetailTab>('target');
 
@@ -109,7 +111,8 @@ function ExerciseDetail({ exercise, onClose }: { exercise: LibraryExercise; onCl
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -202,4 +205,4 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     lineHeight: 24,
   },
-});
+  });

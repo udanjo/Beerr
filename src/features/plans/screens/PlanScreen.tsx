@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,28 +13,44 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseDetailModal } from '../../exercises/components/ExerciseDetail';
 import { ExerciseLibrary } from '../../exercises/components/ExerciseLibrary';
 import type { LibraryExercise } from '../../exercises/services/exerciseLibrary';
+import { syncExpiryReminders } from '../../settings/services/expiryReminders';
 import { DayTabs } from '../components/DayTabs';
 import { ExerciseRow } from '../components/ExerciseRow';
 import { ExerciseSheet } from '../components/ExerciseSheet';
 import { PlanForm } from '../components/PlanForm';
+import { ExpirySheet } from '../components/ExpirySheet';
 import { PlanSwitcherSheet } from '../components/PlanSwitcherSheet';
 import { usePlans } from '../hooks/usePlans';
 import { createExerciseFromLibrary } from '../services/exerciseFactory';
+import { expiryText, isExpired, isExpiringSoon } from '../services/planExpiry';
 import type { Exercise, NewPlan, Plan, PlanDay } from '../types';
 
 interface PlanScreenProps {
   /** Espaço reservado para a barra de abas flutuante. */
   bottomInset: number;
   onStartTraining: (plan: Plan, day: PlanDay) => void;
+  onOpenSettings: () => void;
+  /** Aviso de vencimento ligado nas configurações. */
+  remindersEnabled: boolean;
+  /** Pedido para abrir a lista de planos em um plano (ex.: toque na notificação de vencimento). */
+  focusRequest: { planId: string; nonce: number } | null;
 }
 
-export function PlanScreen({ bottomInset, onStartTraining }: PlanScreenProps) {
+export function PlanScreen({
+  bottomInset,
+  onStartTraining,
+  onOpenSettings,
+  remindersEnabled,
+  focusRequest,
+}: PlanScreenProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const { plans, isLoading, error, addPlan, removePlan, setDayExercises } = usePlans();
+  const { plans, isLoading, error, addPlan, removePlan, setPlanExpiry, setDayExercises } = usePlans();
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
@@ -43,9 +59,27 @@ export function PlanScreen({ bottomInset, onStartTraining }: PlanScreenProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [renewingId, setRenewingId] = useState<string | null>(null);
   const [howToId, setHowToId] = useState<string | null>(null);
 
-  const plan = plans.find((item) => item.id === selectedPlanId) ?? plans[0] ?? null;
+  // Só os planos vigentes entram na escolha automática; o selecionado à mão (ex.: um vencido
+  // aberto pela lista, ou um treino em andamento) é mantido.
+  const now = new Date();
+  const currentPlans = plans.filter((item) => !isExpired(item, now));
+  const expiredPlan = plans.find((item) => isExpired(item, now)) ?? null;
+  useEffect(() => {
+    if (isLoading) return;
+    syncExpiryReminders(plans, remindersEnabled).catch(() => undefined);
+  }, [plans, isLoading, remindersEnabled]);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    setSelectedPlanId(focusRequest.planId);
+    setSelectedDayId(null);
+    setIsSwitcherOpen(true);
+  }, [focusRequest]);
+
+  const plan = plans.find((item) => item.id === selectedPlanId) ?? currentPlans[0] ?? null;
   const day = plan?.days.find((item) => item.id === selectedDayId) ?? plan?.days[0] ?? null;
   const editingExercise = day?.exercises.find((exercise) => exercise.id === editingId) ?? null;
 
@@ -136,9 +170,13 @@ export function PlanScreen({ bottomInset, onStartTraining }: PlanScreenProps) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {isLoading ? (
-        <ActivityIndicator style={styles.loading} color={colors.primary} />
+        <ActivityIndicator style={styles.loading} color={colors.accent} />
       ) : !plan || !day ? (
-        <EmptyState onCreate={() => setIsFormOpen(true)} />
+        <EmptyState
+          expired={expiredPlan !== null}
+          onCreate={() => setIsFormOpen(true)}
+          onRenew={() => expiredPlan && setRenewingId(expiredPlan.id)}
+        />
       ) : (
         <>
           <View style={styles.header}>
@@ -155,6 +193,20 @@ export function PlanScreen({ bottomInset, onStartTraining }: PlanScreenProps) {
               <Ionicons name="chevron-down" size={22} color={colors.text} />
             </Pressable>
           </View>
+
+          {(isExpired(plan, now) || isExpiringSoon(plan, now)) && (
+            <Pressable
+              onPress={() => setRenewingId(plan.id)}
+              style={[styles.banner, isExpired(plan, now) && styles.bannerExpired]}
+              accessibilityRole="button"
+              accessibilityLabel={`Plano ${expiryText(plan, now)}. Renovar`}
+            >
+              <Text style={styles.bannerText} numberOfLines={1}>
+                {plan.name} {expiryText(plan, now)}
+              </Text>
+              <Text style={styles.bannerAction}>RENOVAR</Text>
+            </Pressable>
+          )}
 
           <DayTabs days={plan.days} activeDayId={day.id} onSelect={setSelectedDayId} />
 
@@ -207,6 +259,15 @@ export function PlanScreen({ bottomInset, onStartTraining }: PlanScreenProps) {
         </>
       )}
 
+      <Pressable
+        onPress={onOpenSettings}
+        style={[styles.settingsButton, { top: insets.top + 12 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Configurações"
+      >
+        <Ionicons name="settings-outline" size={24} color={colors.text} />
+      </Pressable>
+
       <PlanSwitcherSheet
         visible={isSwitcherOpen}
         plans={plans}
@@ -217,6 +278,7 @@ export function PlanScreen({ bottomInset, onStartTraining }: PlanScreenProps) {
           setIsSwitcherOpen(false);
         }}
         onDelete={handleDeletePlan}
+        onRenew={(target) => setRenewingId(target.id)}
         onCreate={() => {
           setIsSwitcherOpen(false);
           setIsFormOpen(true);
@@ -254,25 +316,54 @@ export function PlanScreen({ bottomInset, onStartTraining }: PlanScreenProps) {
         </View>
       </Modal>
 
+      {renewingId && (
+        <ExpirySheet
+          visible
+          title="Renovar prazo"
+          value={plans.find((item) => item.id === renewingId)?.expiresAt}
+          onConfirm={(next) => {
+            setPlanExpiry(renewingId, next);
+            setRenewingId(null);
+          }}
+          onClose={() => setRenewingId(null)}
+        />
+      )}
+
       <ExerciseDetailModal libraryId={howToId} onClose={() => setHowToId(null)} />
     </View>
   );
 }
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+interface EmptyStateProps {
+  /** Há planos, mas todos venceram. */
+  expired: boolean;
+  onCreate: () => void;
+  onRenew: () => void;
+}
+
+function EmptyState({ expired, onCreate, onRenew }: EmptyStateProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   return (
     <View style={styles.empty}>
-      <Ionicons name="barbell" size={64} color={colors.primary} />
-      <Text style={styles.emptyTitle}>Crie seu plano de treino</Text>
+      <Ionicons name="barbell" size={64} color={colors.accent} />
+      <Text style={styles.emptyTitle}>{expired ? 'Seu plano venceu' : 'Crie seu plano de treino'}</Text>
       <Text style={styles.emptyText}>
-        Crie seus treinos (A, B...) e monte a lista de exercícios de cada um.
+        {expired
+          ? 'Renove o prazo do plano ou crie um novo.'
+          : 'Crie seus treinos (A, B...) e monte a lista de exercícios de cada um.'}
       </Text>
-      <PrimaryButton label="Criar plano" onPress={onCreate} style={styles.emptyButton} />
+      {expired && <PrimaryButton label="Renovar" onPress={onRenew} style={styles.emptyButton} />}
+      <PrimaryButton
+        label={expired ? 'Novo plano' : 'Criar plano'}
+        onPress={onCreate}
+        style={expired ? styles.emptySecondary : styles.emptyButton}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -280,8 +371,17 @@ const styles = StyleSheet.create({
   loading: {
     marginTop: 64,
   },
+  settingsButton: {
+    position: 'absolute',
+    right: 12,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: {
-    paddingHorizontal: 20,
+    paddingLeft: 20,
+    paddingRight: 64,
     paddingTop: 12,
     paddingBottom: 8,
   },
@@ -384,6 +484,37 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
   },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    minHeight: 44,
+    marginHorizontal: 20,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  bannerExpired: {
+    backgroundColor: colors.surfaceAlt,
+  },
+  bannerText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: fontSize.sm,
+  },
+  bannerAction: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 16,
+    letterSpacing: 0.4,
+  },
+  emptySecondary: {
+    alignSelf: 'stretch',
+    opacity: 0.85,
+  },
   emptyButton: {
     alignSelf: 'stretch',
     marginTop: 16,
@@ -392,4 +523,4 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-});
+  });

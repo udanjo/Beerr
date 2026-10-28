@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fontSize, fonts } from '../../../shared/theme';
+import { fontSize, fonts, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
 import type { Exercise } from '../types';
 
@@ -28,6 +29,7 @@ function summarize(exercise: Exercise): string {
 }
 
 function ExerciseRowComponent({ exercise, onPress }: ExerciseRowProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={() => onPress(exercise.id)}
@@ -48,7 +50,8 @@ function ExerciseRowComponent({ exercise, onPress }: ExerciseRowProps) {
 
 export const ExerciseRow = memo(ExerciseRowComponent);
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -69,4 +72,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: fontSize.sm,
   },
-});
+  });

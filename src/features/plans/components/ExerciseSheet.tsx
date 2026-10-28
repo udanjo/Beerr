@@ -10,7 +10,8 @@ import {
   SetValueSheet,
   formatWeight,
 } from '../../../shared/components/SetValueSheet';
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
 import { REST_OPTIONS, type Exercise } from '../types';
 
@@ -45,6 +46,7 @@ export function ExerciseSheet({
   onShowHowTo,
   onReplace,
 }: ExerciseSheetProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const [sets, setSets] = useState<SetDraft[]>(() =>
     exercise.sets.map((set) => ({ reps: set.reps || DEFAULT_REPS, weight: set.weight })),
   );
@@ -151,7 +153,7 @@ export function ExerciseSheet({
           accessibilityRole="button"
           accessibilityLabel="Adicionar série"
         >
-          <Ionicons name="add" size={22} color={colors.primary} />
+          <Ionicons name="add" size={22} color={colors.accent} />
           <Text style={styles.addSetText}>SÉRIE</Text>
         </Pressable>
 
@@ -236,6 +238,7 @@ interface ActionPillProps {
 }
 
 function ActionPill({ icon, label, accessibilityLabel, onPress }: ActionPillProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -249,7 +252,8 @@ function ActionPill({ icon, label, accessibilityLabel, onPress }: ActionPillProp
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -364,10 +368,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   addSetText: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.displayBold,
     fontSize: 16,
     letterSpacing: 0.4,
@@ -443,4 +447,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 0.4,
   },
-});
+  });

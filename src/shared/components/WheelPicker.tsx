@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 
-import { colors, fonts, radius } from '../theme';
+import { fonts, radius, type Palette } from '../theme';
+import { useThemedStyles } from '../theme/ThemeContext';
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ITEMS = 5;
@@ -24,6 +25,7 @@ interface WheelPickerProps {
 }
 
 export function WheelPicker({ values, value, onChange, format = String, label }: WheelPickerProps) {
+  const { styles } = useThemedStyles(makeStyles);
   const scrollRef = useRef<ScrollViewInstance>(null);
   const index = Math.max(0, values.indexOf(value));
 
@@ -77,7 +79,8 @@ export function WheelPicker({ values, value, onChange, format = String, label }:
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     height: ITEM_HEIGHT * VISIBLE_ITEMS,
@@ -108,4 +111,4 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 24,
   },
-});
+  });

@@ -4,7 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SegmentedTabs } from '../../../shared/components/SegmentedTabs';
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import {
   EMPTY_TOTALS,
   addDays,
@@ -74,6 +75,7 @@ function describeBar(metric: Metric, dayName: string, value: number): string {
 }
 
 export function ProgressScreen({ sessions, bottomInset }: ProgressScreenProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [weekOffset, setWeekOffset] = useState(0);
   const [metric, setMetric] = useState<Metric>('minutes');
@@ -247,7 +249,7 @@ export function ProgressScreen({ sessions, bottomInset }: ProgressScreenProps) {
           )}
 
           <View style={styles.streakCard}>
-            <Ionicons name="flame" size={26} color={colors.primary} />
+            <Ionicons name="flame" size={26} color={colors.accent} />
             <View>
               <Text style={styles.summaryValue}>{streak}</Text>
               <Text style={styles.summaryLabel}>
@@ -261,7 +263,8 @@ export function ProgressScreen({ sessions, bottomInset }: ProgressScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -336,10 +339,10 @@ const styles = StyleSheet.create({
   },
   dayCircleTrained: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   dayCircleToday: {
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   dayNumber: {
     color: colors.text,
@@ -480,4 +483,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
   },
-});
+  });

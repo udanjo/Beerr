@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radius } from '../theme';
+import { fonts, radius, type Palette } from '../theme';
+import { useThemedStyles } from '../theme/ThemeContext';
 
 interface SegmentedTabsProps<T extends string> {
   options: { value: T; label: string }[];
@@ -13,6 +14,7 @@ export function SegmentedTabs<T extends string>({
   value,
   onChange,
 }: SegmentedTabsProps<T>) {
+  const { styles } = useThemedStyles(makeStyles);
   return (
     <View style={styles.container} accessibilityRole="tablist">
       {options.map((option) => {
@@ -36,7 +38,8 @@ export function SegmentedTabs<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
@@ -62,4 +65,4 @@ const styles = StyleSheet.create({
   labelSelected: {
     color: colors.onWhite,
   },
-});
+  });

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radius } from '../../../shared/theme';
+import { fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 
 interface RestTimerBarProps {
   remaining: number;
@@ -17,6 +18,7 @@ function formatTime(seconds: number): string {
 }
 
 export function RestTimerBar({ remaining, total, onAddTime, onSkip }: RestTimerBarProps) {
+  const { styles } = useThemedStyles(makeStyles);
   const progress = total > 0 ? Math.min(1, remaining / total) : 0;
 
   return (
@@ -64,7 +66,8 @@ export function RestTimerBar({ remaining, total, onAddTime, onSkip }: RestTimerB
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.lg,
@@ -72,7 +75,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   row: {
     flexDirection: 'row',
@@ -86,7 +89,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   time: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.displayBold,
     fontSize: 30,
     lineHeight: 32,
@@ -127,4 +130,4 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.primary,
   },
-});
+  });

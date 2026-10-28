@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
+import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { displayDayLabel } from '../../plans/types';
 import type { WorkoutSession } from '../types';
 
@@ -38,6 +39,7 @@ function volumeKg(session: WorkoutSession): number {
 }
 
 export function HistoryScreen({ sessions, bottomInset, onDelete }: HistoryScreenProps) {
+  const { styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   return (
@@ -67,6 +69,7 @@ function SessionCard({
   session: WorkoutSession;
   onDelete: (sessionId: string) => void;
 }) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   const [expanded, setExpanded] = useState(false);
   const hidden = Math.max(0, session.exercises.length - COLLAPSED_EXERCISES);
   const visible = expanded ? session.exercises : session.exercises.slice(0, COLLAPSED_EXERCISES);
@@ -126,6 +129,7 @@ function SessionCard({
 }
 
 function Stat({ value, label }: { value: string; label: string }) {
+  const { styles } = useThemedStyles(makeStyles);
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -134,7 +138,8 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -170,7 +175,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
   },
   plan: {
-    color: colors.primary,
+    color: colors.accent,
     fontFamily: fonts.displayBold,
     fontSize: 20,
     letterSpacing: 0.4,
@@ -233,4 +238,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     letterSpacing: 0.4,
   },
-});
+  });
