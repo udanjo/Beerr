@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
@@ -15,21 +15,37 @@ interface PlanFormProps {
 const DAY_LABELS = 'ABCDEFG';
 const DEFAULT_NAME = 'Meu plano';
 
-function resizeDays(current: MuscleGroup[][], count: number): MuscleGroup[][] {
-  return Array.from({ length: count }, (_, index) => current[index] ?? []);
-}
+const INITIAL_DAYS = 2;
 
 export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
-  const [dayCount, setDayCount] = useState(3);
-  const [groupsByDay, setGroupsByDay] = useState<MuscleGroup[][]>(() => resizeDays([], 3));
-  // Os grupos são opcionais: ficam recolhidos e só abrem ao toque.
-  const [openDay, setOpenDay] = useState<number | null>(null);
+  const [groupsByDay, setGroupsByDay] = useState<MuscleGroup[][]>(() =>
+    Array.from({ length: INITIAL_DAYS }, () => []),
+  );
+  // Os grupos são opcionais: só o primeiro treino começa aberto.
+  const [openDay, setOpenDay] = useState<number | null>(0);
 
-  const changeDayCount = (count: number) => {
-    setDayCount(count);
-    setGroupsByDay((current) => resizeDays(current, count));
+  const addDay = () => {
+    setGroupsByDay((current) => [...current, []]);
+    setOpenDay(groupsByDay.length);
+  };
+
+  const removeDay = (dayIndex: number) => {
+    // Os treinos são religados em sequência (A, C vira A, B), sem buracos.
+    setGroupsByDay((current) => current.filter((_, index) => index !== dayIndex));
+    setOpenDay(null);
+  };
+
+  const confirmRemoveDay = (dayIndex: number) => {
+    if (groupsByDay[dayIndex].length === 0) {
+      removeDay(dayIndex);
+      return;
+    }
+    Alert.alert(`Excluir treino ${DAY_LABELS[dayIndex]}?`, 'Os grupos escolhidos serão perdidos.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: () => removeDay(dayIndex) },
+    ]);
   };
 
   const toggleGroup = (dayIndex: number, group: MuscleGroup) => {
@@ -45,7 +61,7 @@ export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
     onSubmit({
       name: name.trim() || DEFAULT_NAME,
       days: groupsByDay.map((muscleGroups, index) => ({
-        label: `Dia ${DAY_LABELS[index]}`,
+        label: DAY_LABELS[index],
         muscleGroups,
       })),
     });
@@ -80,73 +96,83 @@ export function PlanForm({ onSubmit, onCancel }: PlanFormProps) {
           accessibilityLabel="Nome do plano"
         />
 
-        <Text style={styles.label}>QUANTOS DIAS DE TREINO?</Text>
-        <View style={styles.row}>
-          {Array.from({ length: MAX_DAYS }, (_, index) => index + 1).map((count) => {
-            const selected = dayCount === count;
-            return (
-              <Pressable
-                key={count}
-                onPress={() => changeDayCount(count)}
-                style={[styles.dayCount, selected && styles.chipSelected]}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`${count} ${count === 1 ? 'dia' : 'dias'}`}
-              >
-                <Text style={[styles.dayCountText, selected && styles.chipTextSelected]}>
-                  {count}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={styles.label}>GRUPOS MUSCULARES (OPCIONAL)</Text>
+        <Text style={styles.label}>TREINOS</Text>
         {groupsByDay.map((groups, dayIndex) => {
           const isOpen = openDay === dayIndex;
+          const letter = DAY_LABELS[dayIndex];
           return (
             <View key={dayIndex} style={styles.dayBox}>
-              <Pressable
-                onPress={() => setOpenDay(isOpen ? null : dayIndex)}
-                style={styles.dayHeader}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: isOpen }}
-                accessibilityLabel={`Dia ${DAY_LABELS[dayIndex]}, grupos musculares`}
-              >
-                <Text style={styles.dayTitle}>DIA {DAY_LABELS[dayIndex]}</Text>
-                <Text style={styles.daySummary} numberOfLines={1}>
-                  {groups.length > 0 ? groups.join(' · ') : 'Escolher'}
-                </Text>
-                <Ionicons
-                  name={isOpen ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color={colors.textMuted}
-                />
-              </Pressable>
+              <View style={styles.dayHeaderRow}>
+                <Pressable
+                  onPress={() => setOpenDay(isOpen ? null : dayIndex)}
+                  style={styles.dayHeader}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isOpen }}
+                  accessibilityLabel={`Treino ${letter}`}
+                >
+                  <Text style={styles.dayTitle}>{letter}</Text>
+                  <Text style={styles.daySummary} numberOfLines={1}>
+                    {groups.length > 0 ? groups.join(' · ') : 'Sem grupos'}
+                  </Text>
+                  <Ionicons
+                    name={isOpen ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={colors.textMuted}
+                  />
+                </Pressable>
+                {groupsByDay.length > 1 && (
+                  <Pressable
+                    onPress={() => confirmRemoveDay(dayIndex)}
+                    style={styles.removeButton}
+                    hitSlop={4}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Excluir treino ${letter}`}
+                  >
+                    <Ionicons name="close" size={20} color={colors.textMuted} />
+                  </Pressable>
+                )}
+              </View>
               {isOpen && (
-                <View style={styles.row}>
-                  {MUSCLE_GROUPS.map((group) => {
-                    const selected = groups.includes(group);
-                    return (
-                      <Pressable
-                        key={group}
-                        onPress={() => toggleGroup(dayIndex, group)}
-                        style={[styles.chip, selected && styles.chipSelected]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        accessibilityLabel={`${group}, Dia ${DAY_LABELS[dayIndex]}`}
-                      >
-                        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                          {group}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <>
+                  <Text style={styles.hint}>Grupos musculares (opcional)</Text>
+                  <View style={styles.row}>
+                    {MUSCLE_GROUPS.map((group) => {
+                      const selected = groups.includes(group);
+                      return (
+                        <Pressable
+                          key={group}
+                          onPress={() => toggleGroup(dayIndex, group)}
+                          style={[styles.chip, selected && styles.chipSelected]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          accessibilityLabel={`${group}, treino ${letter}`}
+                        >
+                          <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                            {group}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
               )}
             </View>
           );
         })}
+
+        {groupsByDay.length < MAX_DAYS ? (
+          <Pressable
+            onPress={addDay}
+            style={styles.addButton}
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar treino"
+          >
+            <Ionicons name="add" size={20} color={colors.primary} />
+            <Text style={styles.addText}>Adicionar treino</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.hint}>Máximo de {MAX_DAYS} treinos</Text>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
@@ -207,19 +233,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  dayCount: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-  },
-  dayCountText: {
-    color: colors.text,
-    fontFamily: fonts.displayBold,
-    fontSize: 22,
-  },
   chip: {
     minHeight: 44,
     justifyContent: 'center',
@@ -245,7 +258,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  removeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: {
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: fontSize.sm,
+  },
+  addButton: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  addText: {
+    color: colors.primary,
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSize.md,
+  },
   dayHeader: {
+    flex: 1,
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',

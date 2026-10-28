@@ -4,6 +4,7 @@ import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fontSize, fonts, radius } from '../../../shared/theme';
+import { displayDayLabel } from '../../plans/types';
 import type { WorkoutSession } from '../types';
 
 const COLLAPSED_EXERCISES = 3;
@@ -87,7 +88,7 @@ function SessionCard({
     >
       <Text style={styles.date}>{formatDate(session.finishedAt)}</Text>
       <Text style={styles.plan}>
-        {session.dayLabel} · {session.planName}
+        Treino {displayDayLabel(session.dayLabel)} · {session.planName}
       </Text>
 
       <View style={styles.stats}>

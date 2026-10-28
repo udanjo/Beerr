@@ -14,7 +14,7 @@ import {
 import { colors, fontSize, fonts, radius } from '../../../shared/theme';
 import { ExerciseDetailModal } from '../../exercises/components/ExerciseDetail';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
-import type { Exercise, Plan, PlanDay } from '../../plans/types';
+import { displayDayLabel, type Exercise, type Plan, type PlanDay } from '../../plans/types';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { useRestTimer } from '../hooks/useRestTimer';
 import type { SessionSet, WorkoutSession } from '../types';
@@ -239,7 +239,7 @@ export function WorkoutSessionScreen({
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>
-          {day.label.toUpperCase()}
+          TREINO {displayDayLabel(day.label).toUpperCase()}
         </Text>
         <View style={styles.headerSpacer} />
       </View>

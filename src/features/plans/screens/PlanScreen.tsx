@@ -265,7 +265,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <Ionicons name="barbell" size={64} color={colors.primary} />
       <Text style={styles.emptyTitle}>Crie seu plano de treino</Text>
       <Text style={styles.emptyText}>
-        Defina quantos dias você treina e monte a lista de exercícios de cada dia.
+        Crie seus treinos (A, B...) e monte a lista de exercícios de cada um.
       </Text>
       <PrimaryButton label="Criar plano" onPress={onCreate} style={styles.emptyButton} />
     </View>

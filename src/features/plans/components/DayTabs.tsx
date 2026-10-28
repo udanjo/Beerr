@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { colors, fonts, radius } from '../../../shared/theme';
-import type { PlanDay } from '../types';
+import { displayDayLabel, type PlanDay } from '../types';
 
 interface DayTabsProps {
   days: PlanDay[];
@@ -27,10 +27,10 @@ export function DayTabs({ days, activeDayId, onSelect }: DayTabsProps) {
             style={[styles.tab, selected && styles.tabSelected]}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            accessibilityLabel={day.label}
+            accessibilityLabel={`Treino ${displayDayLabel(day.label)}`}
           >
             <Text style={[styles.label, selected && styles.labelSelected]}>
-              {day.label.toUpperCase()}
+              {displayDayLabel(day.label).toUpperCase()}
             </Text>
           </Pressable>
         );

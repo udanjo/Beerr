@@ -19,6 +19,11 @@ export const MAX_DAYS = 7;
 export const DEFAULT_REST_SECONDS = 90;
 export const REST_OPTIONS = [30, 45, 60, 90, 120, 180] as const;
 
+/** Planos e sessões antigos gravaram "Dia A"; hoje se grava só a letra. */
+export function displayDayLabel(label: string): string {
+  return label.replace(/^Dia\s+/i, '');
+}
+
 /** Série planejada; cada série tem a sua própria repetição e carga. */
 export interface PlannedSet {
   reps: number;
@@ -39,7 +44,7 @@ export interface Exercise {
 
 export interface PlanDay {
   id: string;
-  /** Rótulo do dia, ex.: "Dia A". */
+  /** Rótulo do treino, ex.: "A" (planos antigos: "Dia A"). */
   label: string;
   muscleGroups: MuscleGroup[];
   exercises: Exercise[];
