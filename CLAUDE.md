@@ -41,3 +41,11 @@ Feature folders under `src/features/` (`plans`, `exercises`, `sessions`) each ha
 ## UX review workflow
 
 For any request that changes what the user sees or taps, follow the `ux-review` skill (`.claude/skills/ux-review/SKILL.md`): consult the read-only `ux-designer` agent (`.claude/agents/ux-designer.md`) before implementing, and end the summary with a "UX:" line. Skip it for non-visual changes and say so.
+
+## Release workflow
+
+Sempre que o usuário pedir para "subir"/enviar as alterações (push), criar também uma tag nova `vX.Y.Z` (o workflow `build-apk.yml` só roda em tags `v*`). Antes de taguear:
+
+- Decidir o tipo pela mudança e, se não for óbvio, perguntar ao usuário: **major** (quebra de compatibilidade ou mudança grande de produto), **minor** (funcionalidade nova), **patch** (correção ou ajuste pequeno).
+- Subir `version` em `app.json` e `package.json` e incrementar `android.versionCode` em `app.json`; commitar isso antes da tag.
+- Enviar commits e tag (`git push` e `git push origin vX.Y.Z`).
