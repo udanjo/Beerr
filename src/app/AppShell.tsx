@@ -8,7 +8,7 @@ import { type Palette } from '../shared/theme';
 import { useThemedStyles } from '../shared/theme/ThemeContext';
 import { ExerciseLibrary } from '../features/exercises/components/ExerciseLibrary';
 import { PlanScreen } from '../features/plans/screens/PlanScreen';
-import type { Plan, PlanDay } from '../features/plans/types';
+import type { Exercise, Plan, PlanDay } from '../features/plans/types';
 import { useSettings } from '../features/settings/hooks/useSettings';
 import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
 import { planIdFromResponse } from '../features/settings/services/expiryReminders';
@@ -28,6 +28,13 @@ const TABS: TabItem<Tab>[] = [
 
 const TAB_BAR_HEIGHT = 72;
 
+export interface PlanUpdateRequest {
+  planId: string;
+  dayId: string;
+  exercises: Exercise[];
+  nonce: number;
+}
+
 interface ActiveTraining {
   plan: Plan;
   day: PlanDay;
@@ -41,7 +48,14 @@ export function AppShell() {
   const [training, setTraining] = useState<ActiveTraining | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusRequest, setFocusRequest] = useState<{ planId: string; nonce: number } | null>(null);
-  const { notifyExpiry, permissionDenied, setNotifyExpiry } = useSettings();
+  const [planUpdate, setPlanUpdate] = useState<PlanUpdateRequest | null>(null);
+  const {
+    notifyExpiry,
+    permissionDenied,
+    setNotifyExpiry,
+    allowEditDuringWorkout,
+    setAllowEditDuringWorkout,
+  } = useSettings();
 
   // Toque no aviso de vencimento: abre "Meu plano" na lista de planos. Não interrompe um treino.
   const lastResponse = Notifications.useLastNotificationResponse();
@@ -69,6 +83,7 @@ export function AppShell() {
           onOpenSettings={() => setSettingsOpen(true)}
           remindersEnabled={notifyExpiry}
           focusRequest={focusRequest}
+          planUpdate={planUpdate}
         />
       </View>
       <View style={[StyleSheet.absoluteFill, tab !== 'history' && styles.hidden]}>
@@ -95,6 +110,8 @@ export function AppShell() {
             notifyExpiry={notifyExpiry}
             permissionDenied={permissionDenied}
             onToggleNotifyExpiry={setNotifyExpiry}
+            allowEditDuringWorkout={allowEditDuringWorkout}
+            onToggleAllowEdit={setAllowEditDuringWorkout}
             onClose={() => setSettingsOpen(false)}
           />
         </View>
@@ -105,7 +122,16 @@ export function AppShell() {
           <WorkoutSessionScreen
             plan={training.plan}
             day={training.day}
+            allowEdit={allowEditDuringWorkout}
             lastSetsFor={lastSetsFor}
+            onUpdatePlan={(exercises) =>
+              setPlanUpdate((current) => ({
+                planId: training.plan.id,
+                dayId: training.day.id,
+                exercises,
+                nonce: (current?.nonce ?? 0) + 1,
+              }))
+            }
             onFinish={(session) => {
               addSession(session);
               setTraining(null);

@@ -39,6 +39,8 @@ interface PlanScreenProps {
   remindersEnabled: boolean;
   /** Pedido para abrir a lista de planos em um plano (ex.: toque na notificação de vencimento). */
   focusRequest: { planId: string; nonce: number } | null;
+  /** Treino finalizado com mudanças que o usuário quis gravar no plano de origem. */
+  planUpdate: { planId: string; dayId: string; exercises: Exercise[]; nonce: number } | null;
 }
 
 export function PlanScreen({
@@ -47,6 +49,7 @@ export function PlanScreen({
   onOpenSettings,
   remindersEnabled,
   focusRequest,
+  planUpdate,
 }: PlanScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
@@ -66,11 +69,35 @@ export function PlanScreen({
   // aberto pela lista, ou um treino em andamento) é mantido.
   const now = new Date();
   const currentPlans = plans.filter((item) => !isExpired(item, now));
-  const expiredPlan = plans.find((item) => isExpired(item, now)) ?? null;
+  const expiredPlans = plans.filter((item) => isExpired(item, now));
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const reactivatePlan = (planId: string, expiresAt: string | undefined) => {
+    setPlanExpiry(planId, expiresAt);
+    setSelectedPlanId(planId);
+    setSelectedDayId(null);
+    setIsSwitcherOpen(false);
+    setRenewingId(null);
+    setToast('Plano reativado');
+  };
+
   useEffect(() => {
     if (isLoading) return;
     syncExpiryReminders(plans, remindersEnabled).catch(() => undefined);
   }, [plans, isLoading, remindersEnabled]);
+
+  useEffect(() => {
+    if (!planUpdate || isLoading) return;
+    setDayExercises(planUpdate.planId, planUpdate.dayId, planUpdate.exercises);
+    setToast('Plano atualizado');
+    // Só reage a um novo pedido (nonce), não a mudanças em plans/setDayExercises.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planUpdate?.nonce]);
 
   useEffect(() => {
     if (!focusRequest) return;
@@ -81,6 +108,8 @@ export function PlanScreen({
 
   const plan = plans.find((item) => item.id === selectedPlanId) ?? currentPlans[0] ?? null;
   const day = plan?.days.find((item) => item.id === selectedDayId) ?? plan?.days[0] ?? null;
+  const renewingPlan = plans.find((item) => item.id === renewingId) ?? null;
+  const renewingExpired = renewingPlan !== null && isExpired(renewingPlan, now);
   const editingExercise = day?.exercises.find((exercise) => exercise.id === editingId) ?? null;
 
   const saveExercises = useCallback(
@@ -173,9 +202,11 @@ export function PlanScreen({
         <ActivityIndicator style={styles.loading} color={colors.accent} />
       ) : !plan || !day ? (
         <EmptyState
-          expired={expiredPlan !== null}
+          expiredCount={expiredPlans.length}
           onCreate={() => setIsFormOpen(true)}
-          onRenew={() => expiredPlan && setRenewingId(expiredPlan.id)}
+          onReactivate={() =>
+            expiredPlans.length === 1 ? setRenewingId(expiredPlans[0].id) : setIsSwitcherOpen(true)
+          }
         />
       ) : (
         <>
@@ -192,6 +223,19 @@ export function PlanScreen({
               </Text>
               <Ionicons name="chevron-down" size={22} color={colors.text} />
             </Pressable>
+            {expiredPlans.length > 0 && (
+              <Pressable
+                onPress={() => setIsSwitcherOpen(true)}
+                style={styles.expiredChip}
+                accessibilityRole="button"
+                accessibilityLabel={`${expiredPlans.length} ${expiredPlans.length === 1 ? 'plano vencido' : 'planos vencidos'}. Toque para ver`}
+              >
+                <Ionicons name="archive-outline" size={16} color={colors.textMuted} />
+                <Text style={styles.expiredChipText}>
+                  {expiredPlans.length} {expiredPlans.length === 1 ? 'vencido' : 'vencidos'}
+                </Text>
+              </Pressable>
+            )}
           </View>
 
           {(isExpired(plan, now) || isExpiringSoon(plan, now)) && (
@@ -199,12 +243,12 @@ export function PlanScreen({
               onPress={() => setRenewingId(plan.id)}
               style={[styles.banner, isExpired(plan, now) && styles.bannerExpired]}
               accessibilityRole="button"
-              accessibilityLabel={`Plano ${expiryText(plan, now)}. Renovar`}
+              accessibilityLabel={`Plano ${expiryText(plan, now)}. ${isExpired(plan, now) ? 'Reativar' : 'Renovar'}`}
             >
               <Text style={styles.bannerText} numberOfLines={1}>
                 {plan.name} {expiryText(plan, now)}
               </Text>
-              <Text style={styles.bannerAction}>RENOVAR</Text>
+              <Text style={styles.bannerAction}>{isExpired(plan, now) ? 'REATIVAR' : 'RENOVAR'}</Text>
             </Pressable>
           )}
 
@@ -319,14 +363,25 @@ export function PlanScreen({
       {renewingId && (
         <ExpirySheet
           visible
-          title="Renovar prazo"
-          value={plans.find((item) => item.id === renewingId)?.expiresAt}
+          title={renewingExpired ? 'Reativar plano' : 'Renovar prazo'}
+          reactivate={renewingExpired}
+          value={renewingPlan?.expiresAt}
           onConfirm={(next) => {
-            setPlanExpiry(renewingId, next);
-            setRenewingId(null);
+            if (renewingExpired) {
+              reactivatePlan(renewingId, next);
+            } else {
+              setPlanExpiry(renewingId, next);
+              setRenewingId(null);
+            }
           }}
           onClose={() => setRenewingId(null)}
         />
+      )}
+
+      {toast && (
+        <View style={[styles.toast, { bottom: bottomInset + 24 }]} pointerEvents="none">
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
       )}
 
       <ExerciseDetailModal libraryId={howToId} onClose={() => setHowToId(null)} />
@@ -335,24 +390,37 @@ export function PlanScreen({
 }
 
 interface EmptyStateProps {
-  /** Há planos, mas todos venceram. */
-  expired: boolean;
+  /** Quantidade de planos vencidos quando não há nenhum vigente. */
+  expiredCount: number;
   onCreate: () => void;
-  onRenew: () => void;
+  onReactivate: () => void;
 }
 
-function EmptyState({ expired, onCreate, onRenew }: EmptyStateProps) {
+function EmptyState({ expiredCount, onCreate, onReactivate }: EmptyStateProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
+  const expired = expiredCount > 0;
   return (
     <View style={styles.empty}>
       <Ionicons name="barbell" size={64} color={colors.accent} />
-      <Text style={styles.emptyTitle}>{expired ? 'Seu plano venceu' : 'Crie seu plano de treino'}</Text>
+      <Text style={styles.emptyTitle}>
+        {expired
+          ? expiredCount === 1
+            ? 'Seu plano venceu'
+            : 'Seus planos venceram'
+          : 'Crie seu plano de treino'}
+      </Text>
       <Text style={styles.emptyText}>
         {expired
-          ? 'Renove o prazo do plano ou crie um novo.'
+          ? 'Reative um plano vencido ou crie um novo.'
           : 'Crie seus treinos (A, B...) e monte a lista de exercícios de cada um.'}
       </Text>
-      {expired && <PrimaryButton label="Renovar" onPress={onRenew} style={styles.emptyButton} />}
+      {expired && (
+        <PrimaryButton
+          label={expiredCount === 1 ? 'Reativar' : 'Ver planos vencidos'}
+          onPress={onReactivate}
+          style={styles.emptyButton}
+        />
+      )}
       <PrimaryButton
         label={expired ? 'Novo plano' : 'Criar plano'}
         onPress={onCreate}
@@ -398,6 +466,34 @@ const makeStyles = (colors: Palette) =>
     color: colors.text,
     fontFamily: fonts.bodyMedium,
     fontSize: fontSize.xl,
+  },
+  expiredChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    paddingHorizontal: 4,
+  },
+  expiredChipText: {
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: fontSize.sm,
+  },
+  toast: {
+    position: 'absolute',
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  toastText: {
+    color: colors.text,
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSize.sm,
   },
   error: {
     color: colors.danger,

@@ -4,18 +4,22 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BottomSheet } from '../../../shared/components/BottomSheet';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { WheelPicker } from '../../../shared/components/WheelPicker';
-import { fontSize, fonts, type Palette } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { dateKeyFromToday, toDateKey } from '../services/planExpiry';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const DEFAULT_WEEKS = 8;
+const REACTIVATE_DEFAULT_DAYS = 30;
+const QUICK_DAYS = [30, 60, 90];
 
 interface ExpirySheetProps {
   visible: boolean;
   /** Prazo atual (AAAA-MM-DD); ausente = sem prazo. */
   value?: string;
   title?: string;
+  /** Reativar um plano vencido: atalhos de +30/+60/+90 dias e prazo inicial no futuro. */
+  reactivate?: boolean;
   onConfirm: (expiresAt: string | undefined) => void;
   onClose: () => void;
 }
@@ -24,10 +28,19 @@ function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
-export function ExpirySheet({ visible, value, title = 'Prazo do plano', onConfirm, onClose }: ExpirySheetProps) {
+export function ExpirySheet({
+  visible,
+  value,
+  title = 'Prazo do plano',
+  reactivate = false,
+  onConfirm,
+  onClose,
+}: ExpirySheetProps) {
   const { styles } = useThemedStyles(makeStyles);
   const today = new Date();
-  const initial = value ?? dateKeyFromToday(DEFAULT_WEEKS * 7);
+  const initial = reactivate
+    ? dateKeyFromToday(REACTIVATE_DEFAULT_DAYS)
+    : (value ?? dateKeyFromToday(DEFAULT_WEEKS * 7));
   const [year, setYear] = useState(Number(initial.slice(0, 4)));
   const [month, setMonth] = useState(Number(initial.slice(5, 7)));
   const [day, setDay] = useState(Number(initial.slice(8, 10)));
@@ -44,6 +57,27 @@ export function ExpirySheet({ visible, value, title = 'Prazo do plano', onConfir
     <BottomSheet visible={visible} onClose={onClose}>
       <Text style={styles.title}>{title}</Text>
 
+      {reactivate && (
+        <View style={styles.quickRow}>
+          {QUICK_DAYS.map((count) => (
+            <Pressable
+              key={count}
+              onPress={() => {
+                const next = dateKeyFromToday(count);
+                setYear(Number(next.slice(0, 4)));
+                setMonth(Number(next.slice(5, 7)));
+                setDay(Number(next.slice(8, 10)));
+              }}
+              style={styles.quickChip}
+              accessibilityRole="button"
+              accessibilityLabel={`Prazo de ${count} dias`}
+            >
+              <Text style={styles.quickText}>+{count} dias</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <View style={styles.wheels}>
         <WheelPicker label="Dia" values={days} value={safeDay} onChange={setDay} />
         <WheelPicker
@@ -59,7 +93,7 @@ export function ExpirySheet({ visible, value, title = 'Prazo do plano', onConfir
       {isPast && <Text style={styles.error}>Escolha uma data a partir de hoje.</Text>}
 
       <PrimaryButton
-        label="Salvar prazo"
+        label={reactivate ? 'Reativar plano' : 'Salvar prazo'}
         onPress={() => onConfirm(key)}
         disabled={isPast}
         style={styles.save}
@@ -69,9 +103,9 @@ export function ExpirySheet({ visible, value, title = 'Prazo do plano', onConfir
           onPress={() => onConfirm(undefined)}
           style={styles.remove}
           accessibilityRole="button"
-          accessibilityLabel="Remover prazo"
+          accessibilityLabel={reactivate ? 'Reativar sem prazo' : 'Remover prazo'}
         >
-          <Text style={styles.removeText}>Remover prazo</Text>
+          <Text style={styles.removeText}>{reactivate ? 'Reativar sem prazo' : 'Remover prazo'}</Text>
         </Pressable>
       )}
     </BottomSheet>
@@ -86,6 +120,25 @@ const makeStyles = (colors: Palette) =>
     fontSize: fontSize.lg,
     textAlign: 'center',
     marginBottom: 8,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  quickChip: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickText: {
+    color: colors.text,
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSize.sm,
   },
   wheels: {
     flexDirection: 'row',

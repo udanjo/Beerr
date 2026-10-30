@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
@@ -15,6 +15,9 @@ import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseDetailModal } from '../../exercises/components/ExerciseDetail';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
+import { ExerciseLibrary } from '../../exercises/components/ExerciseLibrary';
+import type { LibraryExercise } from '../../exercises/services/exerciseLibrary';
+import { createExerciseFromLibrary } from '../../plans/services/exerciseFactory';
 import { displayDayLabel, type Exercise, type Plan, type PlanDay } from '../../plans/types';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { useRestTimer } from '../hooks/useRestTimer';
@@ -23,8 +26,12 @@ import type { SessionSet, WorkoutSession } from '../types';
 interface WorkoutSessionScreenProps {
   plan: Plan;
   day: PlanDay;
+  /** Configuração: permite trocar/adicionar exercícios durante o treino. */
+  allowEdit: boolean;
   lastSetsFor: (exerciseId: string) => SessionSet[] | undefined;
   onFinish: (session: WorkoutSession) => void;
+  /** Grava no plano de origem a lista de exercícios do dia como ficou no treino. */
+  onUpdatePlan: (exercises: Exercise[]) => void;
   onExit: () => void;
 }
 
@@ -39,6 +46,14 @@ interface ExerciseProgress {
   sets: SetDraft[];
   /** Séries do último treino deste exercício, só para exibir. */
   previous: SessionSet[] | undefined;
+  /** Mudança feita durante o treino em relação ao plano. */
+  origin?: 'replaced' | 'added';
+}
+
+type PickerState = { mode: 'add' } | { mode: 'replace'; index: number };
+
+function pluralExercises(count: number): string {
+  return `${count} ${count === 1 ? 'exercício' : 'exercícios'}`;
 }
 
 function formatPrevious(sets: SessionSet[]): string {
@@ -68,8 +83,10 @@ function buildSets(exercise: Exercise, previous: SessionSet[] | undefined): SetD
 export function WorkoutSessionScreen({
   plan,
   day,
+  allowEdit,
   lastSetsFor,
   onFinish,
+  onUpdatePlan,
   onExit,
 }: WorkoutSessionScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
@@ -88,6 +105,7 @@ export function WorkoutSessionScreen({
   // Cards com todas as séries feitas ficam recolhidos; aqui ficam os reabertos à mão.
   const [reopenedIds, setReopenedIds] = useState<string[]>([]);
   const [editing, setEditing] = useState<{ exerciseIndex: number; setIndex: number } | null>(null);
+  const [picker, setPicker] = useState<PickerState | null>(null);
   const timer = useRestTimer();
 
   useEffect(() => {
@@ -171,6 +189,54 @@ export function WorkoutSessionScreen({
     timer.stop();
   };
 
+  const startReplace = (exerciseIndex: number) => {
+    if (items[exerciseIndex].sets.some((set) => set.done)) {
+      Alert.alert(
+        'Não dá para substituir',
+        'Este exercício já tem séries concluídas. Desmarque-as ou adicione o novo exercício.',
+      );
+      return;
+    }
+    setPicker({ mode: 'replace', index: exerciseIndex });
+  };
+
+  const handlePickerConfirm = (selected: LibraryExercise[]) => {
+    const target = picker;
+    setPicker(null);
+    if (!target || selected.length === 0) return;
+
+    if (target.mode === 'replace') {
+      const library = selected[0];
+      setItems((current) =>
+        current.map((item, i) => {
+          if (i !== target.index) return item;
+          // Mantém séries planejadas e descanso; o id novo evita herdar o histórico do antigo.
+          const exercise: Exercise = {
+            ...createExerciseFromLibrary(library),
+            sets: item.exercise.sets,
+            restSeconds: item.exercise.restSeconds,
+          };
+          return {
+            exercise,
+            sets: buildSets(exercise, undefined),
+            previous: undefined,
+            origin: item.origin ?? 'replaced',
+          };
+        }),
+      );
+      timer.stop();
+      return;
+    }
+
+    setItems((current) => [
+      ...current,
+      ...selected.map((library): ExerciseProgress => {
+        const exercise = createExerciseFromLibrary(library);
+        return { exercise, sets: buildSets(exercise, undefined), previous: undefined, origin: 'added' };
+      }),
+    ]);
+  };
+
   const finish = () => {
     const exercises = items
       .map(({ exercise, sets }) => ({
@@ -188,7 +254,7 @@ export function WorkoutSessionScreen({
       return;
     }
 
-    onFinish({
+    const session: WorkoutSession = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       planId: plan.id,
       planName: plan.name,
@@ -197,7 +263,36 @@ export function WorkoutSessionScreen({
       startedAt,
       finishedAt: new Date().toISOString(),
       exercises,
-    });
+    };
+
+    const replaced = items.filter((item) => item.origin === 'replaced').length;
+    const added = items.filter((item) => item.origin === 'added').length;
+    if (!allowEdit || replaced + added === 0) {
+      onFinish(session);
+      return;
+    }
+
+    const changes = [
+      replaced > 0 ? `trocou ${pluralExercises(replaced)}` : null,
+      added > 0 ? `adicionou ${pluralExercises(added)}` : null,
+    ]
+      .filter(Boolean)
+      .join(' e ');
+    Alert.alert(
+      'Treino alterado',
+      `Você ${changes}. Atualizar o plano "${plan.name} – ${displayDayLabel(day.label)}"?`,
+      [
+        { text: 'Voltar', style: 'cancel' },
+        { text: 'Só neste treino', onPress: () => onFinish(session) },
+        {
+          text: 'Atualizar plano',
+          onPress: () => {
+            onUpdatePlan(items.map((item) => item.exercise));
+            onFinish(session);
+          },
+        },
+      ],
+    );
   };
 
   const handleFinish = () => {
@@ -395,9 +490,33 @@ export function WorkoutSessionScreen({
                   <Ionicons name="checkmark-done" size={20} color={colors.text} />
                 </Pressable>
               </View>
+
+              {allowEdit && (
+                <Pressable
+                  onPress={() => startReplace(exerciseIndex)}
+                  style={styles.replaceButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Substituir ${item.exercise.name}`}
+                >
+                  <Ionicons name="swap-vertical" size={18} color={colors.text} />
+                  <Text style={styles.replaceText}>SUBSTITUIR</Text>
+                </Pressable>
+              )}
             </View>
           );
         })}
+
+        {allowEdit && (
+          <Pressable
+            onPress={() => setPicker({ mode: 'add' })}
+            style={styles.addExercise}
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar exercício ao treino"
+          >
+            <Ionicons name="add" size={22} color={colors.accent} />
+            <Text style={styles.addText}>ADICIONAR EXERCÍCIO</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
@@ -413,6 +532,20 @@ export function WorkoutSessionScreen({
       </View>
 
       <ExerciseDetailModal libraryId={howToId} onClose={() => setHowToId(null)} />
+
+      <Modal visible={picker !== null} animationType="slide" onRequestClose={() => setPicker(null)}>
+        <View style={[styles.pickerContainer, { paddingTop: insets.top }]}>
+          <ExerciseLibrary
+            title={picker?.mode === 'replace' ? 'Substituir exercício' : 'Adicionar exercício'}
+            selectable
+            single={picker?.mode === 'replace'}
+            confirmLabel={picker?.mode === 'replace' ? 'Substituir' : 'Adicionar'}
+            preferredGroups={day.muscleGroups}
+            onConfirm={handlePickerConfirm}
+            onClose={() => setPicker(null)}
+          />
+        </View>
+      </Modal>
 
       {editing && editingItem && (
         <SetValueSheet
@@ -646,6 +779,39 @@ const makeStyles = (colors: Palette) =>
     fontFamily: fonts.displayBold,
     fontSize: 16,
     letterSpacing: 0.4,
+  },
+  replaceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  replaceText: {
+    color: colors.text,
+    fontFamily: fonts.displayBold,
+    fontSize: 16,
+    letterSpacing: 0.4,
+  },
+  addExercise: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 52,
+    marginTop: 16,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.accent,
+  },
+  pickerContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
   collapsedCard: {
     flexDirection: 'row',

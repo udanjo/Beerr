@@ -35,6 +35,8 @@ export function PlanSwitcherSheet({
   const now = new Date();
   const current = plans.filter((plan) => !isExpired(plan, now));
   const expired = plans.filter((plan) => isExpired(plan, now));
+  // Sem plano vigente, os vencidos são a única coisa na lista: já abertos.
+  const expiredOpen = showExpired || current.length === 0;
 
   const renderRow = (plan: Plan) => {
     const selected = plan.id === activePlanId;
@@ -68,9 +70,9 @@ export function PlanSwitcherSheet({
             onPress={() => onRenew(plan)}
             style={styles.renewButton}
             accessibilityRole="button"
-            accessibilityLabel={`Renovar plano ${plan.name}`}
+            accessibilityLabel={`Reativar plano ${plan.name}`}
           >
-            <Text style={styles.renewText}>Renovar</Text>
+            <Text style={styles.renewText}>Reativar</Text>
           </Pressable>
         )}
         <Pressable
@@ -98,16 +100,16 @@ export function PlanSwitcherSheet({
               onPress={() => setShowExpired((open) => !open)}
               style={styles.expiredHeader}
               accessibilityRole="button"
-              accessibilityState={{ expanded: showExpired }}
+              accessibilityState={{ expanded: expiredOpen }}
             >
               <Text style={styles.expiredTitle}>Vencidos ({expired.length})</Text>
               <Ionicons
-                name={showExpired ? 'chevron-up' : 'chevron-down'}
+                name={expiredOpen ? 'chevron-up' : 'chevron-down'}
                 size={20}
                 color={colors.textMuted}
               />
             </Pressable>
-            {showExpired && expired.map((plan) => renderRow(plan))}
+            {expiredOpen && expired.map((plan) => renderRow(plan))}
           </>
         )}
       </ScrollView>
@@ -187,6 +189,7 @@ const makeStyles = (colors: Palette) =>
   deleteButton: {
     width: 56,
     height: 56,
+    marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

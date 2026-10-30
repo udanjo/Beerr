@@ -25,6 +25,8 @@ interface SettingsScreenProps {
   notifyExpiry: boolean;
   permissionDenied: boolean;
   onToggleNotifyExpiry: (next: boolean) => void;
+  allowEditDuringWorkout: boolean;
+  onToggleAllowEdit: (next: boolean) => void;
   onClose: () => void;
 }
 
@@ -32,6 +34,8 @@ export function SettingsScreen({
   notifyExpiry,
   permissionDenied,
   onToggleNotifyExpiry,
+  allowEditDuringWorkout,
+  onToggleAllowEdit,
   onClose,
 }: SettingsScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
@@ -56,6 +60,26 @@ export function SettingsScreen({
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionLabel}>APARÊNCIA</Text>
         <SegmentedTabs options={THEME_OPTIONS} value={preference} onChange={setPreference} />
+
+        <Text style={styles.sectionLabel}>TREINO</Text>
+        <View style={styles.card}>
+          <View style={styles.cardRow}>
+            <View style={styles.cardText}>
+              <Text style={styles.cardTitle}>Editar treino durante a execução</Text>
+              <Text style={styles.cardHint}>
+                Permite substituir ou adicionar exercícios enquanto você treina. Ao finalizar, o app
+                pergunta se quer atualizar o plano.
+              </Text>
+            </View>
+            <Switch
+              value={allowEditDuringWorkout}
+              onValueChange={onToggleAllowEdit}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
+              accessibilityLabel="Editar treino durante a execução"
+            />
+          </View>
+        </View>
 
         <Text style={styles.sectionLabel}>AVISOS</Text>
         <View style={styles.card}>
