@@ -1,6 +1,6 @@
 {
   "name": "beerr",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/barlow-condensed": "^0.4.1",

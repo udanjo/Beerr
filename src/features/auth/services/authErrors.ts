@@ -1,3 +1,9 @@
+/** Código técnico do erro (ex.: auth/network-request-failed), para diagnóstico. */
+export function authErrorCode(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error) return String(error.code);
+  return error instanceof Error ? error.message : 'desconhecido';
+}
+
 /** Traduz o código de erro do Firebase Auth em uma mensagem curta em português. */
 export function authErrorMessage(error: unknown): string {
   const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';

@@ -15,7 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
 import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
-import { authErrorMessage } from '../services/authErrors';
+import { firebaseDiagnostics } from '../../../shared/firebase/firebase';
+import { authErrorCode, authErrorMessage } from '../services/authErrors';
 
 interface LoginScreenProps {
   onSignIn: (email: string, password: string) => Promise<void>;
@@ -34,6 +35,7 @@ export function LoginScreen({ onSignIn, onResetPassword }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
   const canSubmit = email.trim().length > 0 && password.length > 0;
@@ -42,11 +44,13 @@ export function LoginScreen({ onSignIn, onResetPassword }: LoginScreenProps) {
     if (!canSubmit || busy) return;
     setBusy(true);
     setError(null);
+    setDetail(null);
     setInfo(null);
     try {
       await onSignIn(email, password);
     } catch (failure) {
       setError(authErrorMessage(failure));
+      setDetail(`${authErrorCode(failure)} · ${firebaseDiagnostics()}`);
       setBusy(false);
     }
   };
@@ -140,7 +144,14 @@ export function LoginScreen({ onSignIn, onResetPassword }: LoginScreenProps) {
         {error && (
           <View style={styles.message} accessibilityLiveRegion="polite">
             <Ionicons name="alert-circle" size={18} color={colors.danger} />
-            <Text style={styles.errorText}>{error}</Text>
+            <View style={styles.errorBody}>
+              <Text style={styles.errorText}>{error}</Text>
+              {detail && (
+                <Text style={styles.detailText} selectable>
+                  Detalhe: {detail}
+                </Text>
+              )}
+            </View>
           </View>
         )}
         {info && (
@@ -230,8 +241,16 @@ const makeStyles = (colors: Palette) =>
       gap: 8,
       marginTop: 8,
     },
-    errorText: {
+    errorBody: {
       flex: 1,
+      gap: 4,
+    },
+    detailText: {
+      color: colors.textMuted,
+      fontFamily: fonts.body,
+      fontSize: fontSize.xs,
+    },
+    errorText: {
       color: colors.danger,
       fontFamily: fonts.body,
       fontSize: fontSize.sm,

@@ -17,6 +17,13 @@ const config = {
 /** Falso enquanto o projeto Firebase não foi configurado; o app segue só com dados locais. */
 export const isFirebaseConfigured = Boolean(config.apiKey && config.projectId && config.appId);
 
+/** Resumo da configuração embutida no app, para diagnosticar falhas de login (sem revelar a chave). */
+export function firebaseDiagnostics(): string {
+  const key = config.apiKey ?? '';
+  const strange = /[^A-Za-z0-9_-]/.test(key) ? ' (caracteres estranhos!)' : '';
+  return `projeto ${config.projectId ?? '—'} · chave ${key.length} car.${strange}`;
+}
+
 let auth: Auth | null = null;
 let firestore: Firestore | null = null;
 
