@@ -2,6 +2,8 @@
 
 Decisões: cada pessoa usa o próprio celular (login uma vez com e-mail e senha, sem troca de perfil); o app grava sempre no aparelho e o Firebase é só backup, enviado quando houver Wi-Fi; dados atuais são de teste e serão apagados (sem migração); tema por aparelho, aviso de vencimento por pessoa; Firebase JS SDK, para continuar no Expo Go.
 
+Pensar em N usuários, não em 2: nada de e-mail ou UID fixo no código; os dados ficam em `users/{uid}/...` e as regras valem para qualquer conta. Para incluir uma pessoa nova basta criar a conta no Authentication (sem mexer no app). Cada usuário também terá um documento `users/{uid}/profile` (nome de exibição, data de criação).
+
 ## v1.3.0 — base
 
 - [x] Firebase JS SDK instalado, `src/shared/firebase/firebase.ts` (inicialização com persistência do login em AsyncStorage; inativo enquanto não houver configuração) e `.env.example`. Bundle do Android validado com `expo export`.
@@ -23,6 +25,7 @@ Decisões: cada pessoa usa o próprio celular (login uma vez com e-mail e senha,
 
 ## Ideias para mais para frente
 
+- Cadastro pelo próprio app com código de convite (hoje as contas são criadas por você no console; só vale a pena se o número de pessoas crescer).
 - Aviso quando o último backup estiver muito velho.
 - Avisar ao sair da conta que dados ainda não enviados ficam no aparelho.
 - Interruptor "permitir backup com dados móveis".

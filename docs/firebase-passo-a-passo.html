@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BeeRR – Firebase passo a passo</title>
+<style>
+  :root { --bg:#06141a; --card:#0e232b; --text:#e8f3f0; --muted:#9db5b0; --accent:#7cfc4b; --warn:#ffb74d; --bad:#ff7a7a; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f5f8f7; --card:#ffffff; --text:#13242a; --muted:#52666a; --accent:#2a8a0f; --warn:#a15c00; --bad:#b3261e; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:28px; margin:8px 0 4px; }
+  h2 { font-size:21px; margin:36px 0 8px; color:var(--accent); }
+  p, li { color:var(--text); }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border-radius:14px; padding:16px 18px; margin:12px 0; }
+  .ok { border-left:4px solid var(--accent); }
+  .warn { border-left:4px solid var(--warn); }
+  .bad { border-left:4px solid var(--bad); }
+  pre { background:var(--card); padding:14px; border-radius:12px; overflow-x:auto; font-size:14px; line-height:1.5; }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.92em; }
+  ol, ul { padding-left:22px; }
+  li { margin:6px 0; }
+  .pieces { display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); }
+  .pieces .card { margin:0; }
+  .pieces b { color:var(--accent); }
+  table { width:100%; border-collapse:collapse; margin:8px 0; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--muted); vertical-align:top; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Firebase do BeeRR, passo a passo</h1>
+  <p class="muted">Um único projeto para você e sua esposa. Cada um entra com o próprio e-mail e só enxerga os próprios treinos.</p>
+
+  <h2>1. As três peças</h2>
+  <div class="pieces">
+    <div class="card"><b>Authentication</b><br>Responde "quem é você?". Guarda os e-mails e senhas. Você já criou as duas contas aqui.</div>
+    <div class="card"><b>Firestore</b><br>É o banco onde ficam os planos e treinos. Não tem tabelas: tem "pastas" (coleções) com "fichas" (documentos).</div>
+    <div class="card"><b>Regras de segurança</b><br>Dizem "quem pode ler e gravar o quê". É o que impede um de ver os dados do outro.</div>
+  </div>
+
+  <h2>2. Como os dados ficam separados</h2>
+  <p>Existe uma pasta chamada <code>users</code>. Dentro dela, uma subpasta para cada pessoa, identificada pelo <strong>UID</strong> (um código que o Firebase gera para cada conta, tipo <code>k3Jd9xQ…</code>).</p>
+<pre>users
+ ├─ k3Jd9xQ…   (UID do usuário A: você)
+ │    ├─ plans       seus planos
+ │    └─ sessions    seus treinos feitos
+ └─ Zp81mTa…   (UID do usuário B: sua esposa)
+      ├─ plans
+      └─ sessions</pre>
+  <div class="card ok">
+    <strong>Quem cria essas pastas?</strong> O próprio app, no primeiro backup de cada pessoa. Você não precisa criar nenhuma coleção nem documento à mão.
+  </div>
+
+  <h2>3. Por que o e-mail não serve como id</h2>
+  <p>A regra de segurança compara a pasta com o UID de quem está logado. O app sabe o UID de quem entrou, mas a regra padrão do Firebase não funciona bem usando o e-mail como nome de pasta.</p>
+  <table>
+    <tr><th>Usado como nome da pasta</th><th>Resultado</th></tr>
+    <tr><td>UID (<code>k3Jd9xQ…</code>)</td><td>Funciona. É o padrão do Firebase e o que o app vai usar.</td></tr>
+    <tr><td>E-mail digitado à mão</td><td>A regra não reconhece a pasta e bloqueia o acesso. Também dá margem a erro de digitação.</td></tr>
+  </table>
+  <div class="card warn">
+    <strong>O que fazer com o que você criou à mão:</strong> pode apagar a coleção <code>users</code> com os e-mails no console do Firestore. Ela só atrapalha. O app cria a certa sozinho.
+  </div>
+  <p class="muted">Se quiser ver os UIDs: console do Firebase → Authentication → Usuários, coluna "UID de usuário". Não precisa copiar para lugar nenhum.</p>
+
+  <h2>4. Precisa de uma tela de cadastro no app?</h2>
+  <p>Não. As duas contas <strong>já existem</strong> no Authentication, então o app só precisa de uma tela de <strong>login</strong> (e-mail e senha). Isso é mais seguro e mais simples:</p>
+  <ul>
+    <li>Cadastro aberto deixaria qualquer pessoa que tivesse o app criar conta no seu projeto.</li>
+    <li>Com as contas criadas por você, ninguém mais entra.</li>
+    <li>Se sua esposa não souber a senha que você definiu para ela, no login haverá "Esqueci minha senha": ela recebe um e-mail e define a própria. Também dá para você enviar essa redefinição pelo console.</li>
+  </ul>
+
+  <h2>5. O que o Firestore pede ao ser criado</h2>
+  <p>Ao criar o banco, o assistente pergunta coisas como o <strong>nome/ID do banco</strong>, o <strong>local</strong> e o <strong>modo de segurança</strong>. Isso é só a configuração do banco e não tem relação com usuários. Pode deixar o nome padrão. Para o local, escolha São Paulo (<code>southamerica-east1</code>) se aparecer, porque não dá para mudar depois. Para o modo, escolha <strong>produção</strong>.</p>
+  <div class="card warn">O que o console exibir de diferente do que está aqui, tire um print ou copie o texto e me mande. Os nomes dos menus mudam de vez em quando.</div>
+
+  <h2>6. O que falta fazer</h2>
+  <ol>
+    <li><strong>Apagar</strong> a coleção <code>users</code> criada à mão com os e-mails (passo 3).</li>
+    <li><strong>Publicar as regras.</strong> No Firestore, aba <em>Regras</em>, cole o texto abaixo e clique em <em>Publicar</em>:
+<pre>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}</pre>
+    Em português: "dentro de <code>users/ALGUM-UID</code>, só pode ler e gravar quem estiver logado e tiver exatamente esse UID".</li>
+    <li><strong>Bloquear cadastros novos.</strong> Em Authentication → Configurações, desative a criação de contas, se a opção existir.</li>
+    <li><strong>Registrar o app web.</strong> Engrenagem → Configurações do projeto → Seus apps → ícone <code>&lt;/&gt;</code>. Nome <code>beerr</code>, sem Hosting. O console mostra um bloco com <code>apiKey</code>, <code>authDomain</code>, <code>projectId</code>, <code>storageBucket</code>, <code>messagingSenderId</code> e <code>appId</code>.</li>
+    <li><strong>Me passar esse bloco.</strong> Eu crio o arquivo <code>.env.local</code> (que fica só no seu computador, fora do Git). Esses valores não são segredo, a proteção são as regras do passo 2. <strong>Nunca</strong> mande as senhas das contas.</li>
+  </ol>
+
+  <h2>7. Como vai funcionar no dia a dia</h2>
+  <ol>
+    <li>Cada um abre o app no próprio celular e entra com e-mail e senha uma única vez. O app lembra.</li>
+    <li>Os treinos são gravados no celular, mesmo sem internet.</li>
+    <li>Quando o celular estiver no Wi-Fi, o app copia o que mudou para o Firebase, na pasta daquela pessoa.</li>
+    <li>Se trocar de celular ou reinstalar o app, é só entrar de novo: os planos e treinos voltam do Firebase.</li>
+  </ol>
+</main>
+</body>
+</html>
