@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AppShell } from './src/app/AppShell';
+import { AccountGate } from './src/app/AccountGate';
 import { ThemeProvider, useTheme } from './src/shared/theme/ThemeContext';
 
 // A splash nativa cobre o carregamento das fontes, sem tela intermediária.
@@ -21,7 +21,7 @@ function Root({ ready }: { ready: boolean }) {
 
   return (
     <>
-      {ready ? <AppShell /> : <View style={{ flex: 1, backgroundColor: colors.background }} />}
+      {ready ? <AccountGate /> :<View style={{ flex: 1, backgroundColor: colors.background }} />}
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
   );

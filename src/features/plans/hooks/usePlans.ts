@@ -4,27 +4,30 @@ import { createId } from '../services/exerciseFactory';
 import { loadPlans, savePlans } from '../services/planStorage';
 import type { Exercise, NewPlan, Plan } from '../types';
 
-export function usePlans() {
+export function usePlans(uid: string) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadPlans()
+    loadPlans(uid)
       .then(setPlans)
       .catch(() => setError('Não foi possível carregar os planos.'))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [uid]);
 
-  const persist = useCallback(async (next: Plan[]) => {
-    setPlans(next);
-    try {
-      await savePlans(next);
-      setError(null);
-    } catch {
-      setError('Não foi possível salvar os planos.');
-    }
-  }, []);
+  const persist = useCallback(
+    async (next: Plan[]) => {
+      setPlans(next);
+      try {
+        await savePlans(uid, next);
+        setError(null);
+      } catch {
+        setError('Não foi possível salvar os planos.');
+      }
+    },
+    [uid],
+  );
 
   const addPlan = useCallback(
     (input: NewPlan): string => {

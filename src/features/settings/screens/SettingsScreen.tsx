@@ -21,7 +21,32 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 const VERSION = Constants.expoConfig?.version ?? '—';
 const BUILD = Constants.expoConfig?.android?.versionCode;
 
+export interface AccountInfo {
+  email: string | null;
+  lastBackupAt?: string;
+  pending: boolean;
+  syncing: boolean;
+  error?: string;
+  onBackupNow: () => void;
+  onSignOut: () => void;
+}
+
+function formatBackupTime(iso: string | undefined): string {
+  if (!iso) return 'Nunca';
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const today = new Date();
+  const sameDay =
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
+  return sameDay ? `hoje, ${time}` : `${pad(date.getDate())}/${pad(date.getMonth() + 1)}, ${time}`;
+}
+
 interface SettingsScreenProps {
+  /** Conta logada e backup; ausente quando o build não tem Firebase configurado. */
+  account: AccountInfo | null;
   notifyExpiry: boolean;
   permissionDenied: boolean;
   onToggleNotifyExpiry: (next: boolean) => void;
@@ -31,6 +56,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({
+  account,
   notifyExpiry,
   permissionDenied,
   onToggleNotifyExpiry,
@@ -80,6 +106,66 @@ export function SettingsScreen({
             />
           </View>
         </View>
+
+        {account && (
+          <>
+            <Text style={styles.sectionLabel}>CONTA E BACKUP</Text>
+            <View style={styles.card}>
+              <View style={styles.statusRow}>
+                <Ionicons name="person-circle-outline" size={20} color={colors.textMuted} />
+                <Text style={styles.cardHint} selectable>
+                  {account.email ?? 'Conta'}
+                </Text>
+              </View>
+              <View style={styles.statusRow}>
+                <Ionicons
+                  name={
+                    account.error
+                      ? 'alert-circle-outline'
+                      : account.syncing
+                        ? 'cloud-upload-outline'
+                        : account.pending
+                          ? 'time-outline'
+                          : 'checkmark-circle-outline'
+                  }
+                  size={20}
+                  color={account.error ? colors.danger : colors.textMuted}
+                />
+                <Text style={styles.cardHint}>
+                  {account.syncing
+                    ? 'Enviando…'
+                    : account.error
+                      ? `${account.error} Tentaremos de novo.`
+                      : account.pending
+                        ? 'Pendente: será enviado quando houver Wi-Fi.'
+                        : 'Tudo salvo na nuvem.'}
+                </Text>
+              </View>
+              <Text style={styles.cardHint}>Último backup: {formatBackupTime(account.lastBackupAt)}</Text>
+
+              <Pressable
+                onPress={account.onBackupNow}
+                disabled={account.syncing}
+                style={styles.deniedButton}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: account.syncing, busy: account.syncing }}
+                accessibilityLabel="Fazer backup agora"
+              >
+                <Text style={styles.deniedButtonText}>
+                  {account.syncing ? 'ENVIANDO…' : 'FAZER BACKUP AGORA'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={account.onSignOut}
+                style={styles.deniedButton}
+                accessibilityRole="button"
+                accessibilityLabel="Sair da conta"
+              >
+                <Text style={styles.signOutText}>SAIR DA CONTA</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>AVISOS</Text>
         <View style={styles.card}>
@@ -191,6 +277,17 @@ const makeStyles = (colors: Palette) =>
       fontFamily: fonts.body,
       fontSize: fontSize.sm,
       lineHeight: 18,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    signOutText: {
+      color: colors.danger,
+      fontFamily: fonts.displayBold,
+      fontSize: 16,
+      letterSpacing: 0.4,
     },
     denied: {
       gap: 8,

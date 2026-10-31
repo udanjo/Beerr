@@ -3,32 +3,32 @@ import { useCallback, useEffect, useState } from 'react';
 import { loadSessions, saveSessions } from '../services/sessionStorage';
 import type { SessionSet, WorkoutSession } from '../types';
 
-export function useSessions() {
+export function useSessions(uid: string) {
   // Mais recente primeiro.
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
 
   useEffect(() => {
-    loadSessions()
+    loadSessions(uid)
       .then(setSessions)
       .catch(() => setSessions([]));
-  }, []);
+  }, [uid]);
 
   const addSession = useCallback(
     (session: WorkoutSession) => {
       const next = [session, ...sessions];
       setSessions(next);
-      saveSessions(next).catch(() => undefined);
+      saveSessions(uid, next).catch(() => undefined);
     },
-    [sessions],
+    [uid, sessions],
   );
 
   const removeSession = useCallback(
     (sessionId: string) => {
       const next = sessions.filter((session) => session.id !== sessionId);
       setSessions(next);
-      saveSessions(next).catch(() => undefined);
+      saveSessions(uid, next).catch(() => undefined);
     },
-    [sessions],
+    [uid, sessions],
   );
 
   /** Séries do treino mais recente em que o exercício foi feito. */

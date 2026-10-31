@@ -1,4 +1,11 @@
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { fonts, radius, type Palette } from '../theme';
 import { useThemedStyles } from '../theme/ThemeContext';
@@ -7,15 +14,23 @@ interface PrimaryButtonProps {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** Mostra um indicador de progresso e bloqueia o toque, mantendo o texto. */
+  loading?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-export function PrimaryButton({ label, onPress, disabled = false, style }: PrimaryButtonProps) {
-  const { styles } = useThemedStyles(makeStyles);
+export function PrimaryButton({
+  label,
+  onPress,
+  disabled = false,
+  loading = false,
+  style,
+}: PrimaryButtonProps) {
+  const { colors, styles } = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || loading}
       style={({ pressed }) => [
         styles.button,
         disabled && styles.disabled,
@@ -24,8 +39,9 @@ export function PrimaryButton({ label, onPress, disabled = false, style }: Prima
       ]}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, busy: loading }}
     >
+      {loading && <ActivityIndicator color={colors.onPrimary} style={styles.spinner} />}
       <Text style={styles.label}>{label.toUpperCase()}</Text>
     </Pressable>
   );
@@ -33,8 +49,12 @@ export function PrimaryButton({ label, onPress, disabled = false, style }: Prima
 
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
+  spinner: {
+    marginRight: 10,
+  },
   button: {
     minHeight: 52,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,

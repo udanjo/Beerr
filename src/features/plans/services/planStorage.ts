@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { DEFAULT_REST_SECONDS, type Exercise, type Plan, type PlannedSet } from '../types';
 
-const STORAGE_KEY = '@beerr/plans';
+import { markBackupDirty } from '../../backup/services/backupMeta';
+
+/** Cada conta tem a própria chave, para nunca misturar planos de duas pessoas no mesmo aparelho. */
+export const plansKey = (uid: string) => `@beerr/u/${uid}/plans`;
 
 /** Formato salvo nas versões anteriores: séries/reps/carga iguais para todas as séries. */
 type StoredExercise = Omit<Exercise, 'sets' | 'restSeconds'> & {
@@ -34,8 +37,8 @@ function normalizeExercise(stored: StoredExercise): Exercise {
   };
 }
 
-export async function loadPlans(): Promise<Plan[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+export async function loadPlans(uid: string): Promise<Plan[]> {
+  const raw = await AsyncStorage.getItem(plansKey(uid));
   if (!raw) return [];
 
   try {
@@ -49,6 +52,7 @@ export async function loadPlans(): Promise<Plan[]> {
   }
 }
 
-export async function savePlans(plans: Plan[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+export async function savePlans(uid: string, plans: Plan[]): Promise<void> {
+  await AsyncStorage.setItem(plansKey(uid), JSON.stringify(plans));
+  markBackupDirty(uid).catch(() => undefined);
 }

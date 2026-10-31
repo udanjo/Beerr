@@ -1,11 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { markBackupDirty } from '../../backup/services/backupMeta';
 import type { WorkoutSession } from '../types';
 
-const STORAGE_KEY = '@beerr/sessions';
+/** Cada conta tem a própria chave, para nunca misturar treinos de duas pessoas no mesmo aparelho. */
+export const sessionsKey = (uid: string) => `@beerr/u/${uid}/sessions`;
 
-export async function loadSessions(): Promise<WorkoutSession[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+export async function loadSessions(uid: string): Promise<WorkoutSession[]> {
+  const raw = await AsyncStorage.getItem(sessionsKey(uid));
   if (!raw) return [];
 
   try {
@@ -15,6 +17,7 @@ export async function loadSessions(): Promise<WorkoutSession[]> {
   }
 }
 
-export async function saveSessions(sessions: WorkoutSession[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+export async function saveSessions(uid: string, sessions: WorkoutSession[]): Promise<void> {
+  await AsyncStorage.setItem(sessionsKey(uid), JSON.stringify(sessions));
+  markBackupDirty(uid).catch(() => undefined);
 }

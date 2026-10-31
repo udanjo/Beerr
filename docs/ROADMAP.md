@@ -11,7 +11,7 @@ Pensar em N usuários, não em 2: nada de e-mail ou UID fixo no código; os dado
 - [ ] Criar o projeto no Firebase, as 2 contas (e-mail/senha) e as Security Rules (`users/{uid}/**` só para o próprio uid); preencher `.env.local`.
 - [ ] Validar Auth e Firestore no Expo Go e no APK do CI (cache offline do Firestore no React Native é incerto).
 
-## v1.4.0 — conta e backup
+## v1.4.0 — conta e backup (implementado; falta testar no aparelho)
 
 - Tela de login (sessão persistente, sair em Configurações; consultar o `ux-designer`). Sem criar conta pelo app.
 - Dados locais guardados por conta.

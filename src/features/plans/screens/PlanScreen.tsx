@@ -31,6 +31,10 @@ import { expiryText, isExpired, isExpiringSoon } from '../services/planExpiry';
 import type { Exercise, NewPlan, Plan, PlanDay } from '../types';
 
 interface PlanScreenProps {
+  /** Conta dona dos planos (chave de armazenamento). */
+  uid: string;
+  /** Backup parado há muito tempo ou com erro: mostra um ponto na engrenagem. */
+  backupAttention: boolean;
   /** Espaço reservado para a barra de abas flutuante. */
   bottomInset: number;
   onStartTraining: (plan: Plan, day: PlanDay) => void;
@@ -44,6 +48,8 @@ interface PlanScreenProps {
 }
 
 export function PlanScreen({
+  uid,
+  backupAttention,
   bottomInset,
   onStartTraining,
   onOpenSettings,
@@ -53,7 +59,7 @@ export function PlanScreen({
 }: PlanScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const { plans, isLoading, error, addPlan, removePlan, setPlanExpiry, setDayExercises } = usePlans();
+  const { plans, isLoading, error, addPlan, removePlan, setPlanExpiry, setDayExercises } = usePlans(uid);
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
@@ -307,9 +313,10 @@ export function PlanScreen({
         onPress={onOpenSettings}
         style={[styles.settingsButton, { top: insets.top + 12 }]}
         accessibilityRole="button"
-        accessibilityLabel="Configurações"
+        accessibilityLabel={backupAttention ? 'Configurações. Backup pendente' : 'Configurações'}
       >
         <Ionicons name="settings-outline" size={24} color={colors.text} />
+        {backupAttention && <View style={styles.attentionDot} />}
       </Pressable>
 
       <PlanSwitcherSheet
@@ -446,6 +453,15 @@ const makeStyles = (colors: Palette) =>
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  attentionDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.danger,
   },
   header: {
     paddingLeft: 20,

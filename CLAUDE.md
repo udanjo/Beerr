@@ -30,6 +30,8 @@ Feature folders under `src/features/` (`plans`, `exercises`, `sessions`) each ha
 
 **Settings** (`features/settings`): opened from the gear in the plan header as an overlay in `AppShell`. Theme preference (dark/light/system, default dark) persists under `@beerr/theme`; the plan-expiry reminder toggle under `@beerr/settings`. Reminders are local notifications (`expo-notifications`) rescheduled from `PlanScreen` via `syncExpiryReminders` (2 days before `Plan.expiresAt`, 09:00). Plans have an optional `expiresAt` (AAAA-MM-DD, local date); expired plans live in a collapsed "Vencidos" section of the plan switcher (`plans/services/planExpiry.ts`).
 
+**Contas e backup** (`features/auth`, `features/backup`, `shared/firebase`): `App.tsx` renders `app/AccountGate.tsx`, which shows `LoginScreen` (Firebase Auth e-mail/senha, accounts created by the owner in the console, no sign-up in the app), then `RestoreScreen` for an empty device, then `AppShell` (remounted by `key={uid}`). Local data is per account (`@beerr/u/{uid}/plans|sessions|backup`); the app is offline-first and Firestore (`users/{uid}/plans|sessions/{id}`) is only a backup, sent on Wi-Fi by `useBackup` (dirty flag + `rev` in `backupMeta`; only new sessions are uploaded, deletions mirror `synced*Ids`; restore never overwrites local data). Firebase config comes from `EXPO_PUBLIC_FIREBASE_*` (`.env.local`, GitHub Actions *Variables*); without it the app runs local-only (`uid` `local`). `tsconfig` maps `firebase/auth` to the RN typings. Roadmap in `docs/ROADMAP.md`.
+
 ## Gotchas
 
 - `ScrollView` refs are typed `ScrollViewInstance` in this RN version, not `ScrollView`.
