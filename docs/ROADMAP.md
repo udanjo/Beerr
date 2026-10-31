@@ -19,7 +19,7 @@ Pensar em N usuários, não em 2: nada de e-mail ou UID fixo no código; os dado
 - Restaurar ao entrar num aparelho vazio.
 - Configurações: "Último backup / Pendente" e botão "Fazer backup agora".
 
-## v1.5.0 — biometria
+## v1.5.0 — biometria (implementado; falta testar no aparelho)
 
 - Trava opcional ao abrir o app (`expo-local-authentication`), com interruptor em Configurações e carência de 5 minutos ao voltar do segundo plano.
 

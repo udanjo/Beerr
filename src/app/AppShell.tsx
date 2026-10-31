@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TabBar, type TabItem } from '../shared/components/TabBar';
@@ -12,6 +12,7 @@ import type { Exercise, Plan, PlanDay } from '../features/plans/types';
 import { useSettings } from '../features/settings/hooks/useSettings';
 import { SettingsScreen, type AccountInfo } from '../features/settings/screens/SettingsScreen';
 import { useBackup } from '../features/backup/hooks/useBackup';
+import { useAppLock } from './AppLockGate';
 import { planIdFromResponse } from '../features/settings/services/expiryReminders';
 import { useSessions } from '../features/sessions/hooks/useSessions';
 import { HistoryScreen } from '../features/sessions/screens/HistoryScreen';
@@ -55,6 +56,7 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
   const insets = useSafeAreaInsets();
   const { sessions, addSession, removeSession, lastSetsFor } = useSessions(uid);
   const backup = useBackup(uid, cloud);
+  const lock = useAppLock();
   const [tab, setTab] = useState<Tab>('plan');
   const [training, setTraining] = useState<ActiveTraining | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -83,6 +85,29 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
   }, [lastResponse, training]);
 
   const bottomInset = Math.max(insets.bottom, 12) + TAB_BAR_HEIGHT;
+
+  // Com treino ativo o bloqueio ao abrir nunca interrompe.
+  const { setTrainingActive } = lock;
+  useEffect(() => {
+    setTrainingActive(training !== null);
+  }, [training, setTrainingActive]);
+
+  const handleToggleLock = async (next: boolean) => {
+    if (!next) {
+      await lock.disable();
+      return;
+    }
+    if ((await lock.enable()) === 'unavailable') {
+      Alert.alert(
+        'Bloqueio indisponível',
+        'Cadastre biometria, PIN ou padrão nos ajustes do aparelho para usar o bloqueio.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Abrir ajustes', onPress: () => Linking.openSettings() },
+        ],
+      );
+    }
+  };
 
   const handleBackupNow = async () => {
     const result = await backup.backupNow(false);
@@ -174,6 +199,8 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
         <View style={StyleSheet.absoluteFill}>
           <SettingsScreen
             account={account}
+            appLockEnabled={lock.enabled}
+            onToggleAppLock={handleToggleLock}
             notifyExpiry={notifyExpiry}
             permissionDenied={permissionDenied}
             onToggleNotifyExpiry={setNotifyExpiry}

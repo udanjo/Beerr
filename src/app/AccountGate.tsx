@@ -5,6 +5,7 @@ import { LoginScreen } from '../features/auth/screens/LoginScreen';
 import { useRestore } from '../features/backup/hooks/useRestore';
 import { RestoreScreen } from '../features/backup/screens/RestoreScreen';
 import { useTheme } from '../shared/theme/ThemeContext';
+import { AppLockGate } from './AppLockGate';
 import { AppShell } from './AppShell';
 
 const LOCAL_UID = 'local';
@@ -21,7 +22,11 @@ export function AccountGate() {
     return <LoginScreen onSignIn={signIn} onResetPassword={resetPassword} />;
   }
   if (state.status === 'local') {
-    return <AppShell uid={LOCAL_UID} cloud={false} email={null} onSignOut={signOut} />;
+    return (
+      <AppLockGate>
+        <AppShell uid={LOCAL_UID} cloud={false} email={null} onSignOut={signOut} />
+      </AppLockGate>
+    );
   }
   return <SignedInApp uid={state.uid} email={state.email} onSignOut={signOut} />;
 }
@@ -51,5 +56,9 @@ function SignedInApp({
     );
   }
   // O `key` refaz o app inteiro se a conta mudar, sem sobrar dado da conta anterior.
-  return <AppShell key={uid} uid={uid} cloud email={email} onSignOut={onSignOut} />;
+  return (
+    <AppLockGate onSignOut={onSignOut}>
+      <AppShell key={uid} uid={uid} cloud email={email} onSignOut={onSignOut} />
+    </AppLockGate>
+  );
 }

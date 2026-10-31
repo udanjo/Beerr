@@ -2,7 +2,7 @@
   "expo": {
     "name": "BeeRR",
     "slug": "beerr",
-    "version": "1.4.1",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.beerr.app",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -33,6 +33,12 @@
       "expo-image",
       "expo-font",
       "expo-audio",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permite desbloquear o BeeRR com o rosto."
+        }
+      ],
       [
         "expo-splash-screen",
         {

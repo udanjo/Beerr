@@ -47,6 +47,8 @@ function formatBackupTime(iso: string | undefined): string {
 interface SettingsScreenProps {
   /** Conta logada e backup; ausente quando o build não tem Firebase configurado. */
   account: AccountInfo | null;
+  appLockEnabled: boolean;
+  onToggleAppLock: (next: boolean) => void;
   notifyExpiry: boolean;
   permissionDenied: boolean;
   onToggleNotifyExpiry: (next: boolean) => void;
@@ -57,6 +59,8 @@ interface SettingsScreenProps {
 
 export function SettingsScreen({
   account,
+  appLockEnabled,
+  onToggleAppLock,
   notifyExpiry,
   permissionDenied,
   onToggleNotifyExpiry,
@@ -103,6 +107,26 @@ export function SettingsScreen({
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.white}
               accessibilityLabel="Editar treino durante a execução"
+            />
+          </View>
+        </View>
+
+        <Text style={styles.sectionLabel}>SEGURANÇA</Text>
+        <View style={styles.card}>
+          <View style={styles.cardRow}>
+            <View style={styles.cardText}>
+              <Text style={styles.cardTitle}>Bloquear ao abrir o app</Text>
+              <Text style={styles.cardHint}>
+                Pede digital, rosto, PIN ou padrão do aparelho ao abrir. Não pede de novo se você
+                voltar em até 5 minutos.
+              </Text>
+            </View>
+            <Switch
+              value={appLockEnabled}
+              onValueChange={onToggleAppLock}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
+              accessibilityLabel="Bloquear ao abrir o app"
             />
           </View>
         </View>

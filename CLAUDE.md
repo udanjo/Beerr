@@ -32,6 +32,8 @@ Feature folders under `src/features/` (`plans`, `exercises`, `sessions`) each ha
 
 **Contas e backup** (`features/auth`, `features/backup`, `shared/firebase`): `App.tsx` renders `app/AccountGate.tsx`, which shows `LoginScreen` (Firebase Auth e-mail/senha, accounts created by the owner in the console, no sign-up in the app), then `RestoreScreen` for an empty device, then `AppShell` (remounted by `key={uid}`). Local data is per account (`@beerr/u/{uid}/plans|sessions|backup`); the app is offline-first and Firestore (`users/{uid}/plans|sessions/{id}`) is only a backup, sent on Wi-Fi by `useBackup` (dirty flag + `rev` in `backupMeta`; only new sessions are uploaded, deletions mirror `synced*Ids`; restore never overwrites local data). Firebase config comes from `EXPO_PUBLIC_FIREBASE_*` (`.env.local`, GitHub Actions *Variables*); without it the app runs local-only (`uid` `local`). `tsconfig` maps `firebase/auth` to the RN typings. Roadmap in `docs/ROADMAP.md`.
 
+**Bloqueio biométrico** (`app/AppLockGate.tsx`, `features/settings/{services/biometricLock.ts,screens/LockScreen.tsx}`): opt-in in Settings ("SEGURANÇA"), stored under `@beerr/applock` (its own key, not `@beerr/settings`). `AppLockGate` wraps `AppShell` and covers it with `LockScreen` without unmounting; it locks on cold start and after >5 min in background, never during an active workout (`setTrainingActive` from `AppShell`). Uses `expo-local-authentication` with the device PIN/pattern fallback always on; if the device loses its lock method the gate turns itself off instead of locking the user out. Enabling/disabling asks for authentication first.
+
 ## Gotchas
 
 - `ScrollView` refs are typed `ScrollViewInstance` in this RN version, not `ScrollView`.
