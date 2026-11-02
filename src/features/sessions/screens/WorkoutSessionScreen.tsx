@@ -15,6 +15,7 @@ import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseDetailModal } from '../../exercises/components/ExerciseDetail';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
+import { getLibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { ExerciseLibrary } from '../../exercises/components/ExerciseLibrary';
 import type { LibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { createExerciseFromLibrary } from '../../plans/services/exerciseFactory';
@@ -161,7 +162,12 @@ export function WorkoutSessionScreen({
     const justCompleted = next[exerciseIndex].sets[setIndex].done;
     if (justCompleted) Vibration.vibrate(20);
     const allDone = next.every((item) => item.sets.every((set) => set.done));
-    if (justCompleted && !allDone) timer.start(next[exerciseIndex].exercise.restSeconds);
+    if (justCompleted && !allDone) {
+      const rest = next[exerciseIndex].exercise.restSeconds;
+      // Exercício sem descanso: não inicia o timer e encerra o de outro exercício.
+      if (rest > 0) timer.start(rest);
+      else timer.stop();
+    }
     if (allDone) timer.stop();
   };
 
@@ -409,7 +415,7 @@ export function WorkoutSessionScreen({
                     </Text>
                   )}
                 </View>
-                {item.exercise.libraryId && (
+                {item.exercise.libraryId && getLibraryExercise(item.exercise.libraryId) && (
                   <Pressable
                     onPress={() => setHowToId(item.exercise.libraryId ?? null)}
                     style={styles.howToButton}

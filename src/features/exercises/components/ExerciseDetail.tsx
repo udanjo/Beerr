@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SegmentedTabs } from '../../../shared/components/SegmentedTabs';
 import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
+import { useCustomExercises } from '../hooks/useCustomExercises';
+import { deleteCustomExercise } from '../services/customExercises';
 import { getLibraryExercise, type LibraryExercise } from '../services/exerciseLibrary';
+import { CustomExerciseSheet } from './CustomExerciseSheet';
 import { ExerciseAnimation } from './ExerciseAnimation';
 
 type DetailTab = 'target' | 'instructions' | 'equipment';
@@ -23,6 +26,7 @@ interface ExerciseDetailModalProps {
 }
 
 export function ExerciseDetailModal({ libraryId, onClose }: ExerciseDetailModalProps) {
+  const customList = useCustomExercises();
   const exercise = libraryId ? getLibraryExercise(libraryId) : undefined;
 
   return (
@@ -41,12 +45,46 @@ function ExerciseDetail({ exercise, onClose }: { exercise: LibraryExercise; onCl
   const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<DetailTab>('target');
+  const [editing, setEditing] = useState(false);
+
+  const openVideo = async () => {
+    if (!exercise.videoUrl) return;
+    try {
+      await Linking.openURL(exercise.videoUrl);
+    } catch {
+      Alert.alert('Não foi possível abrir o link', 'Confira o endereço do vídeo e tente de novo.');
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      `Excluir "${exercise.name}"?`,
+      'O exercício continua nos seus planos, só com o nome. O vídeo, as instruções e o grupo serão perdidos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            deleteCustomExercise(exercise.id).catch(() => undefined);
+            onClose();
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }} bounces={false}>
         <View style={[styles.hero, { paddingTop: insets.top + 16 }]}>
-          <ExerciseAnimation images={exercise.images} style={styles.animation} />
+          {exercise.custom ? (
+            <View style={styles.customHero}>
+              <Ionicons name="barbell" size={72} color={colors.accent} />
+            </View>
+          ) : (
+            <ExerciseAnimation images={exercise.images} style={styles.animation} />
+          )}
         </View>
 
         <View style={styles.panel}>
@@ -54,12 +92,31 @@ function ExerciseDetail({ exercise, onClose }: { exercise: LibraryExercise; onCl
             <View style={styles.tag}>
               <Text style={styles.tagText}>{exercise.target.toUpperCase()}</Text>
             </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>{exercise.level.toUpperCase()}</Text>
-            </View>
+            {exercise.level !== '' && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{exercise.level.toUpperCase()}</Text>
+              </View>
+            )}
+            {exercise.custom && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>MEU</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.title}>{exercise.name}</Text>
+
+          {exercise.videoUrl && (
+            <Pressable
+              onPress={openVideo}
+              style={styles.videoButton}
+              accessibilityRole="link"
+              accessibilityLabel="Abrir vídeo no navegador"
+            >
+              <Ionicons name="play" size={22} color={colors.onPrimary} />
+              <Text style={styles.videoText}>ABRIR VÍDEO</Text>
+            </Pressable>
+          )}
 
           <SegmentedTabs options={TABS} value={tab} onChange={setTab} />
 
@@ -81,6 +138,10 @@ function ExerciseDetail({ exercise, onClose }: { exercise: LibraryExercise; onCl
               </>
             )}
 
+            {tab === 'instructions' && exercise.instructions.length === 0 && (
+              <Text style={styles.value}>Sem instruções.</Text>
+            )}
+
             {tab === 'instructions' &&
               exercise.instructions.map((step, index) => (
                 <View key={index} style={styles.step}>
@@ -96,8 +157,40 @@ function ExerciseDetail({ exercise, onClose }: { exercise: LibraryExercise; onCl
               </>
             )}
           </View>
+
+          {exercise.custom && (
+            <View style={styles.customActions}>
+              <Pressable
+                onPress={() => setEditing(true)}
+                style={styles.secondaryAction}
+                accessibilityRole="button"
+                accessibilityLabel="Editar exercício"
+              >
+                <Ionicons name="create-outline" size={20} color={colors.accent} />
+                <Text style={styles.editText}>EDITAR</Text>
+              </Pressable>
+              <Pressable
+                onPress={confirmDelete}
+                style={styles.secondaryAction}
+                accessibilityRole="button"
+                accessibilityLabel="Excluir exercício"
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                <Text style={styles.deleteText}>EXCLUIR</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {editing && (
+        <CustomExerciseSheet
+          exercise={exercise}
+          existingNames={[]}
+          onClose={() => setEditing(false)}
+          onSaved={() => setEditing(false)}
+        />
+      )}
 
       <Pressable
         onPress={onClose}
@@ -126,6 +219,52 @@ const makeStyles = (colors: Palette) =>
     width: '100%',
     borderWidth: 0,
     borderRadius: 0,
+  },
+  customHero: {
+    height: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+  },
+  videoButton: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  videoText: {
+    color: colors.onPrimary,
+    fontFamily: fonts.displayBold,
+    fontSize: 20,
+    letterSpacing: 0.4,
+  },
+  customActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  secondaryAction: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  editText: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+    letterSpacing: 0.4,
+  },
+  deleteText: {
+    color: colors.danger,
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+    letterSpacing: 0.4,
   },
   backButton: {
     position: 'absolute',

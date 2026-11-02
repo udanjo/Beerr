@@ -15,6 +15,8 @@ import {
   listExercises,
   type LibraryExercise,
 } from '../services/exerciseLibrary';
+import { useCustomExercises } from '../hooks/useCustomExercises';
+import { CustomExerciseSheet } from './CustomExerciseSheet';
 import { ExerciseDetailModal } from './ExerciseDetail';
 import { ExerciseThumb } from './ExerciseThumb';
 
@@ -27,7 +29,6 @@ const TABS: { value: LibraryTab; label: string }[] = [
 ];
 
 const MUSCLE_ONLY_GROUPS = MUSCLE_GROUPS.filter((group) => group !== 'Cardio');
-const groupCounts = countByGroup();
 
 interface ExerciseLibraryProps {
   title: string;
@@ -62,6 +63,10 @@ export function ExerciseLibrary({
   const [detailId, setDetailId] = useState<string | null>(null);
   // Com o teclado aberto, o cabeçalho encolhe para sobrar espaço à lista.
   const [searchFocused, setSearchFocused] = useState(false);
+  const [creating, setCreating] = useState<{ name: string } | null>(null);
+  // Relista e recontagem quando um exercício personalizado é criado, editado ou excluído.
+  const customExercises = useCustomExercises();
+  const groupCounts = useMemo(() => countByGroup(), [customExercises]);
 
   const hasDayGroups = (preferredGroups?.length ?? 0) > 0;
   const [onlyDayGroups, setOnlyDayGroups] = useState(true);
@@ -79,7 +84,7 @@ export function ExerciseLibrary({
       onlyGroups: filterByDay ? preferredGroups : undefined,
       preferred: tab === 'all' ? preferredGroups : undefined,
     });
-  }, [showGroupList, tab, openGroup, query, preferredGroups, filterByDay]);
+  }, [showGroupList, tab, openGroup, query, preferredGroups, filterByDay, customExercises]);
 
   const toggle = useCallback(
     (id: string) => {
@@ -96,6 +101,15 @@ export function ExerciseLibrary({
       .map((id) => getLibraryExercise(id))
       .filter((exercise): exercise is LibraryExercise => exercise !== undefined);
     onConfirm?.(selected);
+  };
+
+  const handleCreated = (created: LibraryExercise) => {
+    setCreating(null);
+    // Sem seleção (aba Exercícios) não há o que marcar; no seletor o novo já vem marcado.
+    if (!selectable) return;
+    setQuery('');
+    if (preferredGroups && !preferredGroups.includes(created.group)) setOnlyDayGroups(false);
+    setSelectedIds((current) => (single ? [created.id] : [...current, created.id]));
   };
 
   const changeTab = (next: LibraryTab) => {
@@ -146,6 +160,18 @@ export function ExerciseLibrary({
             </Pressable>
           )}
         </View>
+
+        {!searchFocused && (
+          <Pressable
+            onPress={() => setCreating({ name: '' })}
+            style={styles.createButton}
+            accessibilityRole="button"
+            accessibilityLabel="Criar exercício"
+          >
+            <Ionicons name="add" size={22} color={colors.accent} />
+            <Text style={styles.createText}>CRIAR EXERCÍCIO</Text>
+          </Pressable>
+        )}
 
         {!searchFocused && <SegmentedTabs options={TABS} value={tab} onChange={changeTab} />}
 
@@ -234,7 +260,24 @@ export function ExerciseLibrary({
           initialNumToRender={10}
           windowSize={7}
           contentContainerStyle={{ paddingBottom: bottomPadding + footerHeight + 16 }}
-          ListEmptyComponent={<Text style={styles.empty}>Nenhum exercício encontrado.</Text>}
+          ListEmptyComponent={
+            <View>
+              <Text style={styles.empty}>Nenhum exercício encontrado.</Text>
+              {isSearching && (
+                <Pressable
+                  onPress={() => setCreating({ name: query })}
+                  style={[styles.createButton, styles.createEmpty]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Criar exercício ${query.trim()}`}
+                >
+                  <Ionicons name="add" size={22} color={colors.accent} />
+                  <Text style={styles.createText} numberOfLines={1}>
+                    CRIAR "{query.trim()}"
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          }
           renderItem={({ item }) => (
             <ExerciseListRow
               exercise={item}
@@ -254,6 +297,16 @@ export function ExerciseLibrary({
       )}
 
       <ExerciseDetailModal libraryId={detailId} onClose={() => setDetailId(null)} />
+
+      {creating && (
+        <CustomExerciseSheet
+          initialName={creating.name}
+          initialGroup={tab === 'muscle' && openGroup ? openGroup : tab === 'cardio' ? 'Cardio' : undefined}
+          existingNames={listExercises({}).map((exercise) => exercise.name)}
+          onClose={() => setCreating(null)}
+          onSaved={handleCreated}
+        />
+      )}
     </View>
   );
 }
@@ -291,7 +344,14 @@ const ExerciseListRow = memo(function ExerciseListRow({
         <ExerciseThumb libraryId={exercise.id} size={56} />
       </Pressable>
       <View style={styles.rowText}>
-        <Text style={styles.rowName}>{exercise.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={[styles.rowName, styles.nameFlex]}>{exercise.name}</Text>
+          {exercise.custom && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>MEU</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.rowMeta}>
           {exercise.target}
           {exercise.equipment ? ` · ${exercise.equipment}` : ''}
@@ -429,6 +489,48 @@ const makeStyles = (colors: Palette) =>
     color: colors.textMuted,
     fontFamily: fonts.body,
     fontSize: fontSize.sm,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nameFlex: {
+    flexShrink: 1,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  badgeText: {
+    color: colors.onPrimary,
+    fontFamily: fonts.displayBold,
+    fontSize: 13,
+    letterSpacing: 0.4,
+  },
+  createButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 16,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  createEmpty: {
+    alignSelf: 'center',
+    marginTop: 16,
+    maxWidth: '90%',
+  },
+  createText: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 16,
+    letterSpacing: 0.4,
   },
   checkbox: {
     width: 32,

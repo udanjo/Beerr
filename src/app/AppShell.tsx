@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabBar, type TabItem } from '../shared/components/TabBar';
 import { type Palette } from '../shared/theme';
 import { useThemedStyles } from '../shared/theme/ThemeContext';
+import { initCustomExercises } from '../features/exercises/services/customExercises';
 import { ExerciseLibrary } from '../features/exercises/components/ExerciseLibrary';
 import { PlanScreen } from '../features/plans/screens/PlanScreen';
 import type { Exercise, Plan, PlanDay } from '../features/plans/types';
@@ -56,6 +57,10 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
   const insets = useSafeAreaInsets();
   const { sessions, addSession, removeSession, lastSetsFor } = useSessions(uid);
   const backup = useBackup(uid, cloud);
+  // Exercícios criados pelo usuário nesta conta; a biblioteca os enxerga assim que carregam.
+  useEffect(() => {
+    initCustomExercises(uid).catch(() => undefined);
+  }, [uid]);
   const lock = useAppLock();
   const [tab, setTab] = useState<Tab>('plan');
   const [training, setTraining] = useState<ActiveTraining | null>(null);

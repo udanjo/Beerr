@@ -13,6 +13,7 @@ import {
 import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
+import { getLibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { REST_OPTIONS, type Exercise } from '../types';
 
 interface ExerciseSheetProps {
@@ -30,6 +31,7 @@ interface SetDraft {
 }
 
 function formatRest(seconds: number): string {
+  if (seconds === 0) return 'Sem descanso';
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
@@ -94,7 +96,7 @@ export function ExerciseSheet({
         </View>
 
         <View style={styles.actions}>
-          {exercise.libraryId && (
+          {exercise.libraryId && getLibraryExercise(exercise.libraryId) && (
             <ActionPill
               icon="play"
               label="Como fazer"
@@ -172,8 +174,8 @@ export function ExerciseSheet({
           <Text style={styles.restUnit}>segundos</Text>
         </View>
         <View style={styles.restOptions}>
-          {REST_OPTIONS.map((option) => {
-            const selected = Number(rest) === option;
+          {[0, ...REST_OPTIONS].map((option) => {
+            const selected = rest.trim() !== '' && Number(rest) === option;
             return (
               <Pressable
                 key={option}
@@ -181,7 +183,7 @@ export function ExerciseSheet({
                 style={[styles.restOption, selected && styles.restOptionSelected]}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
-                accessibilityLabel={`Descanso de ${option} segundos`}
+                accessibilityLabel={option === 0 ? 'Sem descanso' : `Descanso de ${option} segundos`}
               >
                 <Text style={[styles.restOptionText, selected && styles.restOptionTextSelected]}>
                   {formatRest(option)}

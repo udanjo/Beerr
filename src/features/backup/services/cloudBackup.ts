@@ -3,6 +3,8 @@ import { collection, doc, getDocs, writeBatch } from 'firebase/firestore';
 import * as Network from 'expo-network';
 
 import { getFirebaseFirestore } from '../../../shared/firebase/firebase';
+import { customExercisesKey, loadCustomExercises } from '../../exercises/services/customExercises';
+import type { LibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { loadPlans, plansKey } from '../../plans/services/planStorage';
 import type { Plan } from '../../plans/types';
 import { loadSessions, sessionsKey } from '../../sessions/services/sessionStorage';
@@ -58,14 +60,16 @@ type Operation = (batch: ReturnType<typeof writeBatch>) => void;
 export async function runBackup(uid: string): Promise<void> {
   const db = requireDb();
   const startRev = (await loadBackupMeta(uid)).rev;
-  const [plans, sessions, meta] = await Promise.all([
+  const [plans, sessions, customs, meta] = await Promise.all([
     loadPlans(uid),
     loadSessions(uid),
+    loadCustomExercises(uid),
     loadBackupMeta(uid),
   ]);
 
   const planIds = new Set(plans.map((plan) => plan.id));
   const sessionIds = new Set(sessions.map((session) => session.id));
+  const customIds = new Set(customs.map((exercise) => exercise.id));
   const syncedSessions = new Set(meta.syncedSessionIds);
 
   const operations: Operation[] = [];
@@ -74,12 +78,19 @@ export async function runBackup(uid: string): Promise<void> {
   for (const plan of plans) {
     operations.push((batch) => batch.set(doc(db, ...base, 'plans', plan.id), clean(plan)));
   }
+  // Exercícios personalizados são poucos e podem ser editados: vão sempre.
+  for (const exercise of customs) {
+    operations.push((batch) => batch.set(doc(db, ...base, 'customExercises', exercise.id), clean(exercise)));
+  }
   for (const session of sessions) {
     if (syncedSessions.has(session.id)) continue;
     operations.push((batch) => batch.set(doc(db, ...base, 'sessions', session.id), clean(session)));
   }
   for (const id of meta.syncedPlanIds) {
     if (!planIds.has(id)) operations.push((batch) => batch.delete(doc(db, ...base, 'plans', id)));
+  }
+  for (const id of meta.syncedCustomIds) {
+    if (!customIds.has(id)) operations.push((batch) => batch.delete(doc(db, ...base, 'customExercises', id)));
   }
   for (const id of meta.syncedSessionIds) {
     if (!sessionIds.has(id)) operations.push((batch) => batch.delete(doc(db, ...base, 'sessions', id)));
@@ -100,16 +111,18 @@ export async function runBackup(uid: string): Promise<void> {
     lastError: undefined,
     syncedPlanIds: [...planIds],
     syncedSessionIds: [...sessionIds],
+    syncedCustomIds: [...customIds],
   }));
 }
 
 /** Baixa planos e treinos da nuvem para um aparelho sem dados. */
 export async function restoreFromCloud(uid: string): Promise<void> {
   const db = requireDb();
-  const [planDocs, sessionDocs] = await withTimeout(
+  const [planDocs, sessionDocs, customDocs] = await withTimeout(
     Promise.all([
       getDocs(collection(db, 'users', uid, 'plans')),
       getDocs(collection(db, 'users', uid, 'sessions')),
+      getDocs(collection(db, 'users', uid, 'customExercises')),
     ]),
   );
 
@@ -120,10 +133,13 @@ export async function restoreFromCloud(uid: string): Promise<void> {
     .map((snapshot) => snapshot.data() as WorkoutSession)
     .sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
 
+  const customs = customDocs.docs.map((snapshot) => snapshot.data() as LibraryExercise);
+
   // Grava direto no armazenamento (sem marcar como pendente: já está na nuvem).
   await AsyncStorage.multiSet([
     [plansKey(uid), JSON.stringify(plans)],
     [sessionsKey(uid), JSON.stringify(sessions)],
+    [customExercisesKey(uid), JSON.stringify(customs)],
   ]);
   await updateBackupMeta(uid, (current) => ({
     ...current,
@@ -134,5 +150,6 @@ export async function restoreFromCloud(uid: string): Promise<void> {
     lastError: undefined,
     syncedPlanIds: plans.map((plan) => plan.id),
     syncedSessionIds: sessions.map((session) => session.id),
+    syncedCustomIds: customs.map((exercise) => exercise.id),
   }));
 }

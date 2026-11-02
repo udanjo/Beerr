@@ -14,6 +14,7 @@ export interface BackupMeta {
   /** Ids já gravados na nuvem, para enviar só o que é novo e apagar o que foi removido. */
   syncedPlanIds: string[];
   syncedSessionIds: string[];
+  syncedCustomIds: string[];
 }
 
 const EMPTY: BackupMeta = {
@@ -22,6 +23,7 @@ const EMPTY: BackupMeta = {
   restoreDone: false,
   syncedPlanIds: [],
   syncedSessionIds: [],
+  syncedCustomIds: [],
 };
 
 const metaKey = (uid: string) => `@beerr/u/${uid}/backup`;

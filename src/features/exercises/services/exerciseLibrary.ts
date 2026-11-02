@@ -1,5 +1,6 @@
 import type { MuscleGroup } from '../../plans/types';
 import rawExercises from '../data/exercises.json';
+import { getCustomExercises } from './customExercises';
 
 export interface LibraryExercise {
   id: string;
@@ -12,6 +13,10 @@ export interface LibraryExercise {
   level: string;
   instructions: string[];
   images: string[];
+  /** Exercício criado pelo usuário (fora da base). */
+  custom?: boolean;
+  /** Link opcional do vídeo (só exercícios personalizados). */
+  videoUrl?: string;
 }
 
 // Dados: free-exercise-db (Unlicense) traduzido por gugeldev/exercicios-bd-ptbr (CC0).
@@ -33,7 +38,7 @@ const exercisesById = new Map(exercises.map((exercise) => [exercise.id, exercise
 const searchNames = new Map(exercises.map((exercise) => [exercise.id, normalizeText(exercise.name)]));
 
 export function getLibraryExercise(id: string): LibraryExercise | undefined {
-  return exercisesById.get(id);
+  return exercisesById.get(id) ?? getCustomExercises().find((exercise) => exercise.id === id);
 }
 
 export function imageUrl(path: string): string {
@@ -57,11 +62,13 @@ export function listExercises({
 }: ListOptions): LibraryExercise[] {
   const normalizedQuery = normalizeText(query.trim());
 
-  const matches = exercises.filter(
+  // Os personalizados vêm primeiro, para o usuário achar o que criou.
+  const matches = [...getCustomExercises(), ...exercises].filter(
     (exercise) =>
       (group === undefined || exercise.group === group) &&
       (onlyGroups === undefined || onlyGroups.includes(exercise.group)) &&
-      (normalizedQuery.length === 0 || searchNames.get(exercise.id)?.includes(normalizedQuery)),
+      (normalizedQuery.length === 0 ||
+        (searchNames.get(exercise.id) ?? normalizeText(exercise.name)).includes(normalizedQuery)),
   );
 
   if (preferred.length === 0) return matches;
@@ -74,7 +81,7 @@ export function listExercises({
 
 export function countByGroup(): Map<MuscleGroup, number> {
   const counts = new Map<MuscleGroup, number>();
-  for (const exercise of exercises) {
+  for (const exercise of [...getCustomExercises(), ...exercises]) {
     counts.set(exercise.group, (counts.get(exercise.group) ?? 0) + 1);
   }
   return counts;
