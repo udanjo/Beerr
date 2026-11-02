@@ -4,13 +4,14 @@ App de treino de academia em português (pt-BR), com tema escuro em verde neon (
 
 ## Funcionalidades
 
-- **Planos de treino**: vários planos, cada um com treinos (A, B, ...) livres, grupos musculares e exercícios com séries, repetições, carga, descanso e observações.
+- **Planos de treino**: vários planos, cada um com treinos (A, B, ...) livres, grupos musculares e exercícios com séries, repetições, carga, descanso (ou "Sem descanso") e observações.
 - **Prazo do plano**: data de vencimento opcional, aviso por notificação 2 dias antes (às 09:00) e seção "Vencidos" no seletor de planos. Planos vencidos podem ser reativados com +30/+60/+90 dias, data própria ou sem prazo.
-- **Treino em execução**: séries marcadas uma a uma, cronômetro de descanso, duração e volume ao vivo. Carga e repetições vêm preenchidas do último treino do exercício.
+- **Treino em execução**: séries marcadas uma a uma, cronômetro de descanso (não dispara em exercícios marcados como "Sem descanso"), duração e volume ao vivo. Carga e repetições vêm preenchidas do último treino do exercício.
 - **Editar treino durante a execução** (opcional, em Configurações): substituir ou adicionar exercícios enquanto treina. Ao finalizar, o app pergunta se o plano de origem deve ser atualizado.
 - **Histórico e progresso**: treinos salvos e estatísticas calculadas a partir deles.
 - **Biblioteca de exercícios**: 873 exercícios em português, com busca (ignora acentos) e filtro por grupo muscular. As imagens carregam da internet na primeira visualização.
-- **Contas e backup**: login com e-mail e senha (as contas são criadas pelo responsável no console do Firebase; não há cadastro no app). Cada conta tem os próprios planos e treinos. O app grava sempre no aparelho, funciona sem internet e envia o backup para o Firestore quando há Wi-Fi. Em um aparelho novo, entrar na conta restaura os dados.
+- **Exercícios personalizados**: quando a base não tem o exercício, é possível criar o seu (nome, grupo muscular, equipamento, instruções e link de vídeo opcional), editar e excluir. Eles aparecem na biblioteca com o selo "MEU", entram nos planos e treinos como os demais e vão para o backup. O botão "Abrir vídeo" abre o link no navegador ou no app do vídeo.
+- **Contas e backup**: login com e-mail e senha (as contas são criadas pelo responsável no console do Firebase; não há cadastro no app). Cada conta tem os próprios planos, treinos e exercícios personalizados. O app grava sempre no aparelho, funciona sem internet e envia o backup para o Firestore quando há Wi-Fi. Em um aparelho novo, entrar na conta restaura os dados.
 - **Configurações**: tema (escuro, claro ou sistema), conta e backup (estado, "Fazer backup agora", sair), aviso de vencimento do plano e edição do treino durante a execução.
 
 ## Como rodar
@@ -48,7 +49,7 @@ src/
     auth/               login (Firebase Auth)
     backup/             backup e restauração (Firestore)
     plans/              planos, treinos, exercícios e prazos
-    exercises/          biblioteca de exercícios
+    exercises/          biblioteca e exercícios personalizados
     sessions/           treino em execução, histórico e progresso
     settings/           configurações e avisos
   shared/               tema, Firebase e componentes reutilizáveis
