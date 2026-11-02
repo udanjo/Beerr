@@ -2,12 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  AccessibilityInfo,
   Alert,
+  LayoutAnimation,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  Vibration,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -70,6 +73,8 @@ export function PlanScreen({
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const [renewingId, setRenewingId] = useState<string | null>(null);
   const [howToId, setHowToId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [movedId, setMovedId] = useState<string | null>(null);
 
   // Só os planos vigentes entram na escolha automática; o selecionado à mão (ex.: um vencido
   // aberto pela lista, ou um treino em andamento) é mantido.
@@ -200,6 +205,38 @@ export function PlanScreen({
     setHowToId(libraryId);
   };
 
+  // Trocar de plano ou de dia encerra o modo reordenar.
+  useEffect(() => {
+    setReordering(false);
+    setMovedId(null);
+  }, [plan?.id, day?.id]);
+
+  useEffect(() => {
+    if (!movedId) return;
+    const timer = setTimeout(() => setMovedId(null), 600);
+    return () => clearTimeout(timer);
+  }, [movedId]);
+
+  const moveExercise = useCallback(
+    (exerciseId: string, direction: -1 | 1) => {
+      if (!day) return;
+      const from = day.exercises.findIndex((exercise) => exercise.id === exerciseId);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= day.exercises.length) return;
+
+      const next = day.exercises.slice();
+      [next[from], next[to]] = [next[to], next[from]];
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      saveExercises(next);
+      setMovedId(exerciseId);
+      Vibration.vibrate(10);
+      AccessibilityInfo.announceForAccessibility(
+        `${next[to].name} agora na posição ${to + 1} de ${next.length}`,
+      );
+    },
+    [day, saveExercises],
+  );
+
   const openExercise = useCallback((exerciseId: string) => setEditingId(exerciseId), []);
 
   return (
@@ -277,16 +314,39 @@ export function PlanScreen({
               <Text style={styles.sectionTitleInline}>
                 {day.exercises.length} {day.exercises.length === 1 ? 'EXERCÍCIO' : 'EXERCÍCIOS'}
               </Text>
-              <Pressable
-                onPress={() => setIsPickerOpen(true)}
-                style={styles.addButton}
-                accessibilityRole="button"
-                accessibilityLabel="Adicionar exercício"
-              >
-                <Ionicons name="add" size={22} color={colors.text} />
-                <Text style={styles.addButtonText}>ADICIONAR</Text>
-              </Pressable>
+              <View style={styles.headerActions}>
+                {day.exercises.length > 1 && (
+                  <Pressable
+                    onPress={() => setReordering((current) => !current)}
+                    style={[styles.addButton, reordering && styles.reorderDone]}
+                    accessibilityRole="button"
+                    accessibilityLabel={reordering ? 'Concluir reordenação' : 'Reordenar exercícios'}
+                  >
+                    <Ionicons
+                      name={reordering ? 'checkmark' : 'swap-vertical'}
+                      size={20}
+                      color={reordering ? colors.onPrimary : colors.text}
+                    />
+                    <Text style={[styles.addButtonText, reordering && styles.reorderDoneText]}>
+                      {reordering ? 'CONCLUÍDO' : 'REORDENAR'}
+                    </Text>
+                  </Pressable>
+                )}
+                {!reordering && (
+                  <Pressable
+                    onPress={() => setIsPickerOpen(true)}
+                    style={styles.addButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Adicionar exercício"
+                  >
+                    <Ionicons name="add" size={22} color={colors.text} />
+                    <Text style={styles.addButtonText}>ADICIONAR</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
+
+            {reordering && <Text style={styles.reorderHint}>Use as setas para mudar a ordem.</Text>}
 
             <View style={styles.exerciseList}>
               {day.exercises.length === 0 ? (
@@ -294,14 +354,28 @@ export function PlanScreen({
                   Nenhum exercício neste dia. Toque em “Adicionar” para escolher na biblioteca.
                 </Text>
               ) : (
-                day.exercises.map((exercise) => (
-                  <ExerciseRow key={exercise.id} exercise={exercise} onPress={openExercise} />
+                day.exercises.map((exercise, index) => (
+                  <ExerciseRow
+                    key={exercise.id}
+                    exercise={exercise}
+                    onPress={openExercise}
+                    reorder={
+                      reordering
+                        ? {
+                            position: index,
+                            total: day.exercises.length,
+                            highlighted: movedId === exercise.id,
+                            onMove: moveExercise,
+                          }
+                        : undefined
+                    }
+                  />
                 ))
               )}
             </View>
           </ScrollView>
 
-          {day.exercises.length > 0 && (
+          {day.exercises.length > 0 && !reordering && (
             <View style={[styles.floating, { bottom: bottomInset + 8 }]} pointerEvents="box-none">
               <PrimaryButton label="Iniciar treino" onPress={() => onStartTraining(plan, day)} />
             </View>
@@ -554,6 +628,25 @@ const makeStyles = (colors: Palette) =>
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reorderDone: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  reorderDoneText: {
+    color: colors.onPrimary,
+  },
+  reorderHint: {
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: fontSize.sm,
+    paddingHorizontal: 20,
+    paddingBottom: 4,
   },
   addButtonText: {
     color: colors.text,

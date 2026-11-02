@@ -5,6 +5,7 @@ App de treino de academia em português (pt-BR), com tema escuro em verde neon (
 ## Funcionalidades
 
 - **Planos de treino**: vários planos, cada um com treinos (A, B, ...) livres, grupos musculares e exercícios com séries, repetições, carga, descanso (ou "Sem descanso") e observações.
+- **Reordenar exercicios**: no plano, o modo REORDENAR move exercicios com setas de subir e descer. No treino (com a edicao durante a execucao ligada), cada exercicio pode subir, descer, ir para o primeiro ou para o ultimo lugar, e o app pergunta se o plano deve ser atualizado com a nova ordem.
 - **Prazo do plano**: data de vencimento opcional, aviso por notificação 2 dias antes (às 09:00) e seção "Vencidos" no seletor de planos. Planos vencidos podem ser reativados com +30/+60/+90 dias, data própria ou sem prazo.
 - **Treino em execução**: séries marcadas uma a uma, cronômetro de descanso (não dispara em exercícios marcados como "Sem descanso"), duração e volume ao vivo. Carga e repetições vêm preenchidas do último treino do exercício.
 - **Editar treino durante a execução** (opcional, em Configurações): substituir ou adicionar exercícios enquanto treina. Ao finalizar, o app pergunta se o plano de origem deve ser atualizado.

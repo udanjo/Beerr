@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { fontSize, fonts, type Palette } from '../../../shared/theme';
+import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
 import type { Exercise } from '../types';
@@ -10,6 +10,13 @@ import type { Exercise } from '../types';
 interface ExerciseRowProps {
   exercise: Exercise;
   onPress: (exerciseId: string) => void;
+  /** Modo reordenar: a linha não abre o exercício e mostra setas de subir/descer. */
+  reorder?: {
+    position: number;
+    total: number;
+    highlighted: boolean;
+    onMove: (exerciseId: string, direction: -1 | 1) => void;
+  };
 }
 
 /** "4 sets • 12 reps • 50 kg"; mostra faixas quando as séries diferem entre si. */
@@ -28,8 +35,44 @@ function summarize(exercise: Exercise): string {
   return parts.join(' • ');
 }
 
-function ExerciseRowComponent({ exercise, onPress }: ExerciseRowProps) {
+function ExerciseRowComponent({ exercise, onPress, reorder }: ExerciseRowProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
+
+  if (reorder) {
+    const { position, total, highlighted, onMove } = reorder;
+    const canUp = position > 0;
+    const canDown = position < total - 1;
+    return (
+      <View style={[styles.row, highlighted && styles.rowHighlighted]}>
+        <ExerciseThumb libraryId={exercise.libraryId} size={64} />
+        <View style={styles.text}>
+          <Text style={styles.name}>{exercise.name}</Text>
+          <Text style={styles.summary}>{summarize(exercise)}</Text>
+        </View>
+        <Pressable
+          onPress={() => onMove(exercise.id, -1)}
+          disabled={!canUp}
+          style={[styles.moveButton, !canUp && styles.moveDisabled]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canUp }}
+          accessibilityLabel={`Mover ${exercise.name} para cima, posição ${position + 1} de ${total}`}
+        >
+          <Ionicons name="chevron-up" size={26} color={colors.text} />
+        </Pressable>
+        <Pressable
+          onPress={() => onMove(exercise.id, 1)}
+          disabled={!canDown}
+          style={[styles.moveButton, !canDown && styles.moveDisabled]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canDown }}
+          accessibilityLabel={`Mover ${exercise.name} para baixo, posição ${position + 1} de ${total}`}
+        >
+          <Ionicons name="chevron-down" size={26} color={colors.text} />
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <Pressable
       onPress={() => onPress(exercise.id)}
@@ -57,6 +100,22 @@ const makeStyles = (colors: Palette) =>
     alignItems: 'center',
     gap: 14,
     paddingVertical: 8,
+  },
+  rowHighlighted: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  moveButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  moveDisabled: {
+    opacity: 0.4,
   },
   text: {
     flex: 1,

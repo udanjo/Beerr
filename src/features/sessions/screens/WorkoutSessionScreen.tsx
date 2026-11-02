@@ -195,6 +195,22 @@ export function WorkoutSessionScreen({
     timer.stop();
   };
 
+  // Muda a posição do exercício na sessão; os estados por id (cards reabertos) acompanham o exercício.
+  const moveItem = (exerciseId: string, target: 'up' | 'down' | 'first' | 'last') => {
+    setItems((current) => {
+      const from = current.findIndex((item) => item.exercise.id === exerciseId);
+      if (from < 0) return current;
+      const to =
+        target === 'up' ? from - 1 : target === 'down' ? from + 1 : target === 'first' ? 0 : current.length - 1;
+      if (to < 0 || to >= current.length || to === from) return current;
+      const next = current.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    Vibration.vibrate(10);
+  };
+
   const startReplace = (exerciseIndex: number) => {
     if (items[exerciseIndex].sets.some((set) => set.done)) {
       Alert.alert(
@@ -273,17 +289,22 @@ export function WorkoutSessionScreen({
 
     const replaced = items.filter((item) => item.origin === 'replaced').length;
     const added = items.filter((item) => item.origin === 'added').length;
-    if (!allowEdit || replaced + added === 0) {
+    // Ordem relativa dos exercícios do plano que continuam no treino, comparada com a original.
+    const keptIds = items.filter((item) => item.origin === undefined).map((item) => item.exercise.id);
+    const originalIds = day.exercises.map((exercise) => exercise.id).filter((id) => keptIds.includes(id));
+    const reordered = keptIds.some((id, index) => id !== originalIds[index]);
+    if (!allowEdit || (replaced + added === 0 && !reordered)) {
       onFinish(session);
       return;
     }
 
-    const changes = [
+    const parts = [
       replaced > 0 ? `trocou ${pluralExercises(replaced)}` : null,
       added > 0 ? `adicionou ${pluralExercises(added)}` : null,
-    ]
-      .filter(Boolean)
-      .join(' e ');
+      reordered ? 'reordenou os exercícios' : null,
+    ].filter(Boolean);
+    const changes =
+      parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}` : parts[0];
     Alert.alert(
       'Treino alterado',
       `Você ${changes}. Atualizar o plano "${plan.name} – ${displayDayLabel(day.label)}"?`,
@@ -498,15 +519,38 @@ export function WorkoutSessionScreen({
               </View>
 
               {allowEdit && (
-                <Pressable
-                  onPress={() => startReplace(exerciseIndex)}
-                  style={styles.replaceButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Substituir ${item.exercise.name}`}
-                >
-                  <Ionicons name="swap-vertical" size={18} color={colors.text} />
-                  <Text style={styles.replaceText}>SUBSTITUIR</Text>
-                </Pressable>
+                <View style={styles.editRow}>
+                  <Pressable
+                    onPress={() => startReplace(exerciseIndex)}
+                    style={styles.replaceButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Substituir ${item.exercise.name}`}
+                  >
+                    <Ionicons name="swap-vertical" size={18} color={colors.text} />
+                    <Text style={styles.replaceText}>SUBSTITUIR</Text>
+                  </Pressable>
+                  {(
+                    [
+                      { target: 'up', label: 'SUBIR', icon: 'arrow-up', disabled: exerciseIndex === 0 },
+                      { target: 'down', label: 'DESCER', icon: 'arrow-down', disabled: exerciseIndex === items.length - 1 },
+                      { target: 'first', label: 'PRIMEIRO', icon: 'arrow-up-circle-outline', disabled: exerciseIndex === 0 },
+                      { target: 'last', label: 'ÚLTIMO', icon: 'arrow-down-circle-outline', disabled: exerciseIndex === items.length - 1 },
+                    ] as const
+                  ).map((move) => (
+                    <Pressable
+                      key={move.target}
+                      onPress={() => moveItem(item.exercise.id, move.target)}
+                      disabled={move.disabled}
+                      style={[styles.replaceButton, move.disabled && styles.moveDisabled]}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: move.disabled }}
+                      accessibilityLabel={`Mover ${item.exercise.name}: ${move.label.toLowerCase()}`}
+                    >
+                      <Ionicons name={move.icon} size={18} color={colors.text} />
+                      <Text style={styles.replaceText}>{move.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               )}
             </View>
           );
@@ -785,6 +829,14 @@ const makeStyles = (colors: Palette) =>
     fontFamily: fonts.displayBold,
     fontSize: 16,
     letterSpacing: 0.4,
+  },
+  editRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  moveDisabled: {
+    opacity: 0.4,
   },
   replaceButton: {
     flexDirection: 'row',
