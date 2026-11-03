@@ -318,7 +318,7 @@ export function PlanScreen({
                 {day.exercises.length > 1 && (
                   <Pressable
                     onPress={() => setReordering((current) => !current)}
-                    style={[styles.addButton, reordering && styles.reorderDone]}
+                    style={[styles.addButton, !reordering && styles.iconOnlyButton, reordering && styles.reorderDone]}
                     accessibilityRole="button"
                     accessibilityLabel={reordering ? 'Concluir reordenação' : 'Reordenar exercícios'}
                   >
@@ -327,9 +327,9 @@ export function PlanScreen({
                       size={20}
                       color={reordering ? colors.onPrimary : colors.text}
                     />
-                    <Text style={[styles.addButtonText, reordering && styles.reorderDoneText]}>
-                      {reordering ? 'CONCLUÍDO' : 'REORDENAR'}
-                    </Text>
+                    {reordering && (
+                      <Text style={[styles.addButtonText, styles.reorderDoneText]}>CONCLUÍDO</Text>
+                    )}
                   </Pressable>
                 )}
                 {!reordering && (
@@ -613,6 +613,8 @@ const makeStyles = (colors: Palette) =>
   },
   exercisesHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
@@ -628,6 +630,12 @@ const makeStyles = (colors: Palette) =>
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  // Só o ícone quando não está reordenando, para caber ao lado de "ADICIONAR" em telas estreitas.
+  iconOnlyButton: {
+    width: 48,
+    paddingHorizontal: 0,
+    justifyContent: 'center',
   },
   headerActions: {
     flexDirection: 'row',

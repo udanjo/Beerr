@@ -162,19 +162,6 @@ export function ExerciseSheet({
         </Pressable>
 
         <Text style={styles.sectionLabel}>INTERVALO DE DESCANSO</Text>
-        <View style={styles.restRow}>
-          <TextInput
-            style={[styles.pill, styles.restInput, styles.input]}
-            value={rest}
-            onChangeText={setRest}
-            keyboardType="number-pad"
-            maxLength={4}
-            placeholder="0"
-            placeholderTextColor={colors.textMuted}
-            accessibilityLabel="Intervalo de descanso em segundos"
-          />
-          <Text style={styles.restUnit}>segundos</Text>
-        </View>
         <View style={styles.restOptions}>
           {[0, ...REST_OPTIONS].map((option) => {
             const selected = rest.trim() !== '' && Number(rest) === option;
@@ -334,23 +321,10 @@ const makeStyles = (colors: Palette) =>
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pill: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-  },
   indexText: {
     color: colors.text,
     fontFamily: fonts.bodyMedium,
     fontSize: fontSize.md,
-  },
-  input: {
-    color: colors.text,
-    fontFamily: fonts.body,
-    fontSize: fontSize.lg,
-    textAlign: 'center',
   },
   valueText: {
     color: colors.text,
@@ -388,24 +362,10 @@ const makeStyles = (colors: Palette) =>
     marginTop: 18,
     marginBottom: 8,
   },
-  restRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  restInput: {
-    width: 120,
-  },
-  restUnit: {
-    color: colors.textMuted,
-    fontFamily: fonts.body,
-    fontSize: fontSize.md,
-  },
   restOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 12,
   },
   restOption: {
     minHeight: 44,

@@ -162,6 +162,11 @@ export function WorkoutSessionScreen({
     setItems(next);
 
     const justCompleted = next[exerciseIndex].sets[setIndex].done;
+    // Ao concluir a última série, o card volta a recolher mesmo que tenha sido reaberto à mão.
+    if (justCompleted && next[exerciseIndex].sets.every((set) => set.done)) {
+      const finishedId = next[exerciseIndex].exercise.id;
+      setReopenedIds((current) => current.filter((id) => id !== finishedId));
+    }
     if (justCompleted) Vibration.vibrate(20);
     const allDone = next.every((item) => item.sets.every((set) => set.done));
     if (justCompleted && !allDone) {
@@ -187,6 +192,8 @@ export function WorkoutSessionScreen({
 
   // Marcar todas não dispara o descanso: quem usa já terminou o exercício.
   const markAll = (exerciseIndex: number) => {
+    const finishedId = items[exerciseIndex]?.exercise.id;
+    setReopenedIds((current) => current.filter((id) => id !== finishedId));
     setItems((current) =>
       current.map((item, i) =>
         i !== exerciseIndex
