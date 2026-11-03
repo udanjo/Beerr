@@ -15,6 +15,7 @@ import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseDetailModal } from '../../exercises/components/ExerciseDetail';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
+import { useExerciseName } from '../../exercises/hooks/useCustomExercises';
 import { getLibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { ExerciseLibrary } from '../../exercises/components/ExerciseLibrary';
 import type { LibraryExercise } from '../../exercises/services/exerciseLibrary';
@@ -91,6 +92,7 @@ export function WorkoutSessionScreen({
   onExit,
 }: WorkoutSessionScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
+  const nameOf = useExerciseName();
   useKeepAwake();
   const insets = useSafeAreaInsets();
 
@@ -263,7 +265,7 @@ export function WorkoutSessionScreen({
     const exercises = items
       .map(({ exercise, sets }) => ({
         exerciseId: exercise.id,
-        name: exercise.name,
+        name: nameOf(exercise),
         libraryId: exercise.libraryId,
         sets: sets
           .filter((set) => set.done)
@@ -409,11 +411,11 @@ export function WorkoutSessionScreen({
                 style={styles.collapsedCard}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: false }}
-                accessibilityLabel={`${item.exercise.name} concluído. Toque para reabrir`}
+                accessibilityLabel={`${nameOf(item.exercise)} concluído. Toque para reabrir`}
               >
                 <Ionicons name="checkmark-circle" size={24} color={colors.accent} />
                 <Text style={styles.collapsedName} numberOfLines={1}>
-                  {item.exercise.name}
+                  {nameOf(item.exercise)}
                 </Text>
                 <Text style={styles.collapsedMeta}>
                   {item.sets.length} {item.sets.length === 1 ? 'série' : 'séries'}
@@ -428,7 +430,7 @@ export function WorkoutSessionScreen({
                 <ExerciseThumb libraryId={item.exercise.libraryId} size={64} />
                 <View style={styles.exerciseText}>
                   <Text style={styles.exerciseName} numberOfLines={2}>
-                    {item.exercise.name}
+                    {nameOf(item.exercise)}
                   </Text>
                   {item.previous && item.previous.length > 0 && (
                     <Text style={styles.previous} numberOfLines={1}>
@@ -441,7 +443,7 @@ export function WorkoutSessionScreen({
                     onPress={() => setHowToId(item.exercise.libraryId ?? null)}
                     style={styles.howToButton}
                     accessibilityRole="button"
-                    accessibilityLabel={`Como fazer ${item.exercise.name}`}
+                    accessibilityLabel={`Como fazer ${nameOf(item.exercise)}`}
                   >
                     <Ionicons name="play" size={16} color={colors.text} />
                   </Pressable>
@@ -524,7 +526,7 @@ export function WorkoutSessionScreen({
                     onPress={() => startReplace(exerciseIndex)}
                     style={styles.replaceButton}
                     accessibilityRole="button"
-                    accessibilityLabel={`Substituir ${item.exercise.name}`}
+                    accessibilityLabel={`Substituir ${nameOf(item.exercise)}`}
                   >
                     <Ionicons name="swap-vertical" size={18} color={colors.text} />
                     <Text style={styles.replaceText}>SUBSTITUIR</Text>
@@ -544,7 +546,7 @@ export function WorkoutSessionScreen({
                       style={[styles.replaceButton, move.disabled && styles.moveDisabled]}
                       accessibilityRole="button"
                       accessibilityState={{ disabled: move.disabled }}
-                      accessibilityLabel={`Mover ${item.exercise.name}: ${move.label.toLowerCase()}`}
+                      accessibilityLabel={`Mover ${nameOf(item.exercise)}: ${move.label.toLowerCase()}`}
                     >
                       <Ionicons name={move.icon} size={18} color={colors.text} />
                       <Text style={styles.replaceText}>{move.label}</Text>
@@ -599,7 +601,7 @@ export function WorkoutSessionScreen({
 
       {editing && editingItem && (
         <SetValueSheet
-          title={`${editingItem.exercise.name.toUpperCase()} (${editing.setIndex + 1}/${editingItem.sets.length})`}
+          title={`${nameOf(editingItem.exercise).toUpperCase()} (${editing.setIndex + 1}/${editingItem.sets.length})`}
           hint={
             editing.setIndex < editingItem.sets.length - 1
               ? 'Vale também para as próximas séries não concluídas'

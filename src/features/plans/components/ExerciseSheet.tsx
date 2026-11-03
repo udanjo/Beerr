@@ -13,6 +13,7 @@ import {
 import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
+import { useExerciseName } from '../../exercises/hooks/useCustomExercises';
 import { getLibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { REST_OPTIONS, type Exercise } from '../types';
 
@@ -49,6 +50,7 @@ export function ExerciseSheet({
   onReplace,
 }: ExerciseSheetProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
+  const nameOf = useExerciseName();
   const [sets, setSets] = useState<SetDraft[]>(() =>
     exercise.sets.map((set) => ({ reps: set.reps || DEFAULT_REPS, weight: set.weight })),
   );
@@ -91,7 +93,7 @@ export function ExerciseSheet({
         <View style={styles.titleRow}>
           <ExerciseThumb libraryId={exercise.libraryId} size={64} />
           <Text style={styles.name} numberOfLines={2}>
-            {exercise.name}
+            {nameOf(exercise)}
           </Text>
         </View>
 
@@ -220,7 +222,7 @@ export function ExerciseSheet({
 
       {editingIndex !== null && sets[editingIndex] && (
         <SetValueSheet
-          title={`${exercise.name.toUpperCase()} (${editingIndex + 1}/${sets.length})`}
+          title={`${nameOf(exercise).toUpperCase()} (${editingIndex + 1}/${sets.length})`}
           hint={editingIndex < sets.length - 1 ? 'Vale também para as séries seguintes' : undefined}
           reps={sets[editingIndex].reps}
           weight={sets[editingIndex].weight}

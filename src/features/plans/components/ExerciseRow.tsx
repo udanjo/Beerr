@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
+import { useExerciseName } from '../../exercises/hooks/useCustomExercises';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
 import type { Exercise } from '../types';
 
@@ -35,8 +36,10 @@ function summarize(exercise: Exercise): string {
   return parts.join(' • ');
 }
 
-function ExerciseRowComponent({ exercise, onPress, reorder }: ExerciseRowProps) {
+function ExerciseRowComponent({ exercise: stored, onPress, reorder }: ExerciseRowProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
+  const nameOf = useExerciseName();
+  const exercise = { ...stored, name: nameOf(stored) };
 
   if (reorder) {
     const { position, total, highlighted, onMove } = reorder;
