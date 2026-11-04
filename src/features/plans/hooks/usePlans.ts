@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { createId } from '../services/exerciseFactory';
 import { loadPlans, savePlans } from '../services/planStorage';
-import type { Exercise, NewPlan, Plan } from '../types';
+import type { Exercise, NewPlan, Plan, PlanDay } from '../types';
 
 export function usePlans(uid: string) {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -79,5 +79,45 @@ export function usePlans(uid: string) {
     [plans, persist],
   );
 
-  return { plans, isLoading, error, addPlan, addFullPlan, removePlan, setPlanExpiry, setDayExercises };
+  const mapDays = useCallback(
+    (planId: string, change: (days: PlanDay[]) => PlanDay[]) =>
+      persist(plans.map((plan) => (plan.id === planId ? { ...plan, days: change(plan.days) } : plan))),
+    [plans, persist],
+  );
+
+  /** Acrescenta um treino vazio ao plano e devolve o id dele. */
+  const addDay = useCallback(
+    (planId: string, label: string): string => {
+      const day: PlanDay = { id: createId(), label, muscleGroups: [], exercises: [] };
+      mapDays(planId, (days) => [...days, day]);
+      return day.id;
+    },
+    [mapDays],
+  );
+
+  const updateDay = useCallback(
+    (planId: string, dayId: string, changes: Pick<PlanDay, 'label' | 'muscleGroups'>) =>
+      mapDays(planId, (days) => days.map((day) => (day.id === dayId ? { ...day, ...changes } : day))),
+    [mapDays],
+  );
+
+  const removeDay = useCallback(
+    (planId: string, dayId: string) =>
+      mapDays(planId, (days) => (days.length > 1 ? days.filter((day) => day.id !== dayId) : days)),
+    [mapDays],
+  );
+
+  return {
+    plans,
+    isLoading,
+    error,
+    addPlan,
+    addFullPlan,
+    removePlan,
+    setPlanExpiry,
+    setDayExercises,
+    addDay,
+    updateDay,
+    removeDay,
+  };
 }

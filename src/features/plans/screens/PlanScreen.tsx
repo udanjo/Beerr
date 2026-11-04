@@ -22,6 +22,7 @@ import { ExerciseDetailModal } from '../../exercises/components/ExerciseDetail';
 import { ExerciseLibrary } from '../../exercises/components/ExerciseLibrary';
 import type { LibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { syncExpiryReminders } from '../../settings/services/expiryReminders';
+import { DayEditSheet } from '../components/DayEditSheet';
 import { DayTabs } from '../components/DayTabs';
 import { ExerciseRow } from '../components/ExerciseRow';
 import { ExerciseSheet } from '../components/ExerciseSheet';
@@ -32,7 +33,7 @@ import { PlanSwitcherSheet } from '../components/PlanSwitcherSheet';
 import { usePlans } from '../hooks/usePlans';
 import { createExerciseFromLibrary } from '../services/exerciseFactory';
 import { expiryText, isExpired, isExpiringSoon } from '../services/planExpiry';
-import type { Exercise, NewPlan, Plan, PlanDay } from '../types';
+import { displayDayLabel, type Exercise, type NewPlan, type Plan, type PlanDay } from '../types';
 
 interface PlanScreenProps {
   /** Conta dona dos planos (chave de armazenamento). */
@@ -63,7 +64,19 @@ export function PlanScreen({
 }: PlanScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const { plans, isLoading, error, addPlan, addFullPlan, removePlan, setPlanExpiry, setDayExercises } = usePlans(uid);
+  const {
+    plans,
+    isLoading,
+    error,
+    addPlan,
+    addFullPlan,
+    removePlan,
+    setPlanExpiry,
+    setDayExercises,
+    addDay,
+    updateDay,
+    removeDay,
+  } = usePlans(uid);
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
@@ -77,6 +90,7 @@ export function PlanScreen({
   const [howToId, setHowToId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
   const [movedId, setMovedId] = useState<string | null>(null);
+  const [editingDayId, setEditingDayId] = useState<string | null>(null);
 
   // Só os planos vigentes entram na escolha automática; o selecionado à mão (ex.: um vencido
   // aberto pela lista, ou um treino em andamento) é mantido.
@@ -123,7 +137,8 @@ export function PlanScreen({
   const day = plan?.days.find((item) => item.id === selectedDayId) ?? plan?.days[0] ?? null;
   const renewingPlan = plans.find((item) => item.id === renewingId) ?? null;
   const renewingExpired = renewingPlan !== null && isExpired(renewingPlan, now);
-  const editingExercise = day?.exercises.find((exercise) => exercise.id === editingId) ?? null;
+  const editingDay = plan?.days.find((item) => item.id === editingDayId) ?? null;
+  const editingExercise =day?.exercises.find((exercise) => exercise.id === editingId) ?? null;
 
   const saveExercises = useCallback(
     (exercises: Exercise[]) => {
@@ -156,7 +171,28 @@ export function PlanScreen({
     ]);
   };
 
-  const handlePickerConfirm = (selected: LibraryExercise[]) => {
+  const handleAddDay = () => {
+    if (!plan) return;
+    const used = new Set(plan.days.map((item) => displayDayLabel(item.label).toUpperCase()));
+    const label =
+      'ABCDEFG'.split('').find((letter) => !used.has(letter)) ?? String(plan.days.length + 1);
+    const id = addDay(plan.id, label);
+    setSelectedPlanId(plan.id);
+    setSelectedDayId(id);
+    setEditingDayId(id);
+  };
+
+  const handleDeleteDay = () => {
+    if (!plan || !editingDay) return;
+    const index = plan.days.findIndex((item) => item.id === editingDay.id);
+    const neighbor = plan.days[index + 1] ?? plan.days[index - 1];
+    removeDay(plan.id, editingDay.id);
+    setSelectedDayId(neighbor?.id ?? null);
+    setEditingDayId(null);
+    setToast('Treino excluído');
+  };
+
+  const handlePickerConfirm =(selected: LibraryExercise[]) => {
     if (!day) return;
 
     if (replacingId) {
@@ -307,7 +343,12 @@ export function PlanScreen({
             </Pressable>
           )}
 
-          <DayTabs days={plan.days} activeDayId={day.id} onSelect={setSelectedDayId} />
+          <DayTabs
+            days={plan.days}
+            activeDayId={day.id}
+            onSelect={setSelectedDayId}
+            onAdd={handleAddDay}
+          />
 
           {error && <Text style={styles.error}>{error}</Text>}
 
@@ -316,11 +357,20 @@ export function PlanScreen({
             contentContainerStyle={{ paddingBottom: bottomInset + 96 }}
             showsVerticalScrollIndicator={false}
           >
-            {day.muscleGroups.length > 0 && (
+            <View style={styles.targetsRow}>
               <Text style={styles.targetsLine} numberOfLines={1}>
-                {day.muscleGroups.join(' · ')}
+                {day.muscleGroups.length > 0 ? day.muscleGroups.join(' · ') : 'Sem grupos musculares'}
               </Text>
-            )}
+              <Pressable
+                onPress={() => setEditingDayId(day.id)}
+                style={styles.editDayButton}
+                accessibilityRole="button"
+                accessibilityLabel={`Editar treino ${displayDayLabel(day.label)}`}
+              >
+                <Ionicons name="create-outline" size={20} color={colors.accent} />
+                <Text style={styles.editDayText}>EDITAR</Text>
+              </Pressable>
+            </View>
 
             <View style={styles.exercisesHeader}>
               <Text style={styles.sectionTitleInline}>
@@ -363,7 +413,7 @@ export function PlanScreen({
             <View style={styles.exerciseList}>
               {day.exercises.length === 0 ? (
                 <Text style={styles.emptyDay}>
-                  Nenhum exercício neste dia. Toque em “Adicionar” para escolher na biblioteca.
+                  Nenhum exercício neste treino. Toque em “Adicionar” para escolher na biblioteca.
                 </Text>
               ) : (
                 day.exercises.map((exercise, index) => (
@@ -439,7 +489,21 @@ export function PlanScreen({
         />
       )}
 
-      <Modal visible={isFormOpen} animationType="slide" onRequestClose={() => setIsFormOpen(false)}>
+      {editingDay && plan && (
+        <DayEditSheet
+          key={editingDay.id}
+          day={editingDay}
+          canDelete={plan.days.length > 1}
+          onSave={(changes) => {
+            updateDay(plan.id, editingDay.id, changes);
+            setEditingDayId(null);
+          }}
+          onDelete={handleDeleteDay}
+          onClose={() => setEditingDayId(null)}
+        />
+      )}
+
+      <Modal visible={isFormOpen}animationType="slide" onRequestClose={() => setIsFormOpen(false)}>
         <PlanForm onSubmit={handleCreatePlan} onCancel={() => setIsFormOpen(false)} />
       </Modal>
 
@@ -628,12 +692,32 @@ const makeStyles = (colors: Palette) =>
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+  targetsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingLeft: 20,
+    paddingRight: 8,
+    paddingTop: 8,
+  },
   targetsLine: {
+    flex: 1,
     color: colors.textMuted,
     fontFamily: fonts.body,
     fontSize: fontSize.sm,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+  },
+  editDayButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+  },
+  editDayText: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 16,
+    letterSpacing: 0.4,
   },
   sectionTitleInline: {
     color: colors.text,
