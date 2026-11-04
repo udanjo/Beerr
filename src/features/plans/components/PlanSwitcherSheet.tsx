@@ -17,6 +17,7 @@ interface PlanSwitcherSheetProps {
   onDelete: (plan: Plan) => void;
   onRenew: (plan: Plan) => void;
   onCreate: () => void;
+  onCreateAuto: () => void;
   onClose: () => void;
 }
 
@@ -28,6 +29,7 @@ export function PlanSwitcherSheet({
   onDelete,
   onRenew,
   onCreate,
+  onCreateAuto,
   onClose,
 }: PlanSwitcherSheetProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
@@ -115,6 +117,15 @@ export function PlanSwitcherSheet({
       </ScrollView>
 
       <PrimaryButton label="Novo plano" onPress={onCreate} style={styles.create} />
+      <Pressable
+        onPress={onCreateAuto}
+        style={styles.autoButton}
+        accessibilityRole="button"
+        accessibilityLabel="Criar plano automático"
+      >
+        <Ionicons name="sparkles-outline" size={20} color={colors.accent} />
+        <Text style={styles.autoButtonText}>CRIAR PLANO AUTOMÁTICO</Text>
+      </Pressable>
     </BottomSheet>
   );
 }
@@ -195,5 +206,22 @@ const makeStyles = (colors: Palette) =>
   },
   create: {
     marginTop: 8,
+  },
+  autoButton: {
+    minHeight: 52,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  autoButtonText: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+    letterSpacing: 0.5,
   },
   });

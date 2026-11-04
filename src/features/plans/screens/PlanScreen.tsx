@@ -25,6 +25,7 @@ import { syncExpiryReminders } from '../../settings/services/expiryReminders';
 import { DayTabs } from '../components/DayTabs';
 import { ExerciseRow } from '../components/ExerciseRow';
 import { ExerciseSheet } from '../components/ExerciseSheet';
+import { AutoPlanFlow } from '../autoplan/AutoPlanFlow';
 import { PlanForm } from '../components/PlanForm';
 import { ExpirySheet } from '../components/ExpirySheet';
 import { PlanSwitcherSheet } from '../components/PlanSwitcherSheet';
@@ -62,12 +63,13 @@ export function PlanScreen({
 }: PlanScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const { plans, isLoading, error, addPlan, removePlan, setPlanExpiry, setDayExercises } = usePlans(uid);
+  const { plans, isLoading, error, addPlan, addFullPlan, removePlan, setPlanExpiry, setDayExercises } = usePlans(uid);
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isAutoOpen, setIsAutoOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
@@ -129,6 +131,15 @@ export function PlanScreen({
     },
     [plan, day, setDayExercises],
   );
+
+  const handleSaveAutoPlan = (generated: Plan) => {
+    const id = addFullPlan(generated);
+    setSelectedPlanId(id);
+    setSelectedDayId(null);
+    setIsAutoOpen(false);
+    setIsSwitcherOpen(false);
+    setToast('Plano criado');
+  };
 
   const handleCreatePlan = (input: NewPlan) => {
     const id = addPlan(input);
@@ -247,6 +258,7 @@ export function PlanScreen({
         <EmptyState
           expiredCount={expiredPlans.length}
           onCreate={() => setIsFormOpen(true)}
+          onCreateAuto={() => setIsAutoOpen(true)}
           onReactivate={() =>
             expiredPlans.length === 1 ? setRenewingId(expiredPlans[0].id) : setIsSwitcherOpen(true)
           }
@@ -408,6 +420,10 @@ export function PlanScreen({
           setIsSwitcherOpen(false);
           setIsFormOpen(true);
         }}
+        onCreateAuto={() => {
+          setIsSwitcherOpen(false);
+          setIsAutoOpen(true);
+        }}
         onClose={() => setIsSwitcherOpen(false)}
       />
 
@@ -425,6 +441,10 @@ export function PlanScreen({
 
       <Modal visible={isFormOpen} animationType="slide" onRequestClose={() => setIsFormOpen(false)}>
         <PlanForm onSubmit={handleCreatePlan} onCancel={() => setIsFormOpen(false)} />
+      </Modal>
+
+      <Modal visible={isAutoOpen} animationType="slide" onRequestClose={() => setIsAutoOpen(false)}>
+        {isAutoOpen && <AutoPlanFlow onSave={handleSaveAutoPlan} onClose={() => setIsAutoOpen(false)} />}
       </Modal>
 
       <Modal visible={isPickerOpen} animationType="slide" onRequestClose={closePicker}>
@@ -474,10 +494,11 @@ interface EmptyStateProps {
   /** Quantidade de planos vencidos quando não há nenhum vigente. */
   expiredCount: number;
   onCreate: () => void;
+  onCreateAuto: () => void;
   onReactivate: () => void;
 }
 
-function EmptyState({ expiredCount, onCreate, onReactivate }: EmptyStateProps) {
+function EmptyState({ expiredCount, onCreate, onCreateAuto, onReactivate }: EmptyStateProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const expired = expiredCount > 0;
   return (
@@ -507,6 +528,15 @@ function EmptyState({ expiredCount, onCreate, onReactivate }: EmptyStateProps) {
         onPress={onCreate}
         style={expired ? styles.emptySecondary : styles.emptyButton}
       />
+      <Pressable
+        onPress={onCreateAuto}
+        style={styles.autoButton}
+        accessibilityRole="button"
+        accessibilityLabel="Criar plano automático"
+      >
+        <Ionicons name="sparkles-outline" size={20} color={colors.accent} />
+        <Text style={styles.autoButtonText}>CRIAR PLANO AUTOMÁTICO</Text>
+      </Pressable>
     </View>
   );
 }
@@ -727,6 +757,24 @@ const makeStyles = (colors: Palette) =>
   emptySecondary: {
     alignSelf: 'stretch',
     opacity: 0.85,
+  },
+  autoButton: {
+    alignSelf: 'stretch',
+    minHeight: 52,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  autoButtonText: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+    letterSpacing: 0.5,
   },
   emptyButton: {
     alignSelf: 'stretch',

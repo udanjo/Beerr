@@ -44,6 +44,15 @@ export function usePlans(uid: string) {
     [plans, persist],
   );
 
+  /** Grava um plano já montado (ex.: gerado pelo questionário) e devolve o id. */
+  const addFullPlan = useCallback(
+    (plan: Plan): string => {
+      persist([plan, ...plans]);
+      return plan.id;
+    },
+    [plans, persist],
+  );
+
   const removePlan = useCallback(
     (id: string) => persist(plans.filter((plan) => plan.id !== id)),
     [plans, persist],
@@ -70,5 +79,5 @@ export function usePlans(uid: string) {
     [plans, persist],
   );
 
-  return { plans, isLoading, error, addPlan, removePlan, setPlanExpiry, setDayExercises };
+  return { plans, isLoading, error, addPlan, addFullPlan, removePlan, setPlanExpiry, setDayExercises };
 }
