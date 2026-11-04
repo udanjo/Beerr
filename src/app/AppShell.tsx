@@ -19,6 +19,11 @@ import { useSessions } from '../features/sessions/hooks/useSessions';
 import { HistoryScreen } from '../features/sessions/screens/HistoryScreen';
 import { ProgressScreen } from '../features/sessions/screens/ProgressScreen';
 import { WorkoutSessionScreen } from '../features/sessions/screens/WorkoutSessionScreen';
+import {
+  clearWorkoutDraft,
+  loadWorkoutDraft,
+  type WorkoutDraft,
+} from '../features/sessions/services/workoutDraft';
 
 type Tab = 'plan' | 'history' | 'progress' | 'library';
 
@@ -41,6 +46,8 @@ export interface PlanUpdateRequest {
 interface ActiveTraining {
   plan: Plan;
   day: PlanDay;
+  /** Presente quando o treino foi retomado depois de o app ser fechado. */
+  draft?: WorkoutDraft;
 }
 
 interface AppShellProps {
@@ -64,6 +71,17 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
   const lock = useAppLock();
   const [tab, setTab] = useState<Tab>('plan');
   const [training, setTraining] = useState<ActiveTraining | null>(null);
+  // Treino que ficou aberto quando o app foi fechado volta como estava.
+  useEffect(() => {
+    let cancelled = false;
+    loadWorkoutDraft(uid).then((draft) => {
+      if (cancelled || !draft) return;
+      setTraining((current) => current ?? { plan: draft.plan, day: draft.day, draft });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusRequest, setFocusRequest] = useState<{ planId: string; nonce: number } | null>(null);
   const [planUpdate, setPlanUpdate] = useState<PlanUpdateRequest | null>(null);
@@ -219,6 +237,8 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
       {training && (
         <View style={StyleSheet.absoluteFill}>
           <WorkoutSessionScreen
+            uid={uid}
+            initialDraft={training.draft}
             plan={training.plan}
             day={training.day}
             allowEdit={allowEditDuringWorkout}
@@ -233,10 +253,14 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
             }
             onFinish={(session) => {
               addSession(session);
+              clearWorkoutDraft(uid);
               setTraining(null);
               setTab('history');
             }}
-            onExit={() => setTraining(null)}
+            onExit={() => {
+              clearWorkoutDraft(uid);
+              setTraining(null);
+            }}
           />
         </View>
       )}

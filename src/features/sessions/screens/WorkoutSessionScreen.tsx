@@ -23,9 +23,18 @@ import { createExerciseFromLibrary } from '../../plans/services/exerciseFactory'
 import { displayDayLabel, type Exercise, type Plan, type PlanDay } from '../../plans/types';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { useRestTimer } from '../hooks/useRestTimer';
+import {
+  saveWorkoutDraft,
+  type ExerciseProgress,
+  type SetDraft,
+  type WorkoutDraft,
+} from '../services/workoutDraft';
 import type { SessionSet, WorkoutSession } from '../types';
 
 interface WorkoutSessionScreenProps {
+  uid: string;
+  /** Treino retomado após o app ter sido fechado. */
+  initialDraft?: WorkoutDraft;
   plan: Plan;
   day: PlanDay;
   /** Configuração: permite trocar/adicionar exercícios durante o treino. */
@@ -35,21 +44,6 @@ interface WorkoutSessionScreenProps {
   /** Grava no plano de origem a lista de exercícios do dia como ficou no treino. */
   onUpdatePlan: (exercises: Exercise[]) => void;
   onExit: () => void;
-}
-
-interface SetDraft {
-  weight: number;
-  reps: number;
-  done: boolean;
-}
-
-interface ExerciseProgress {
-  exercise: Exercise;
-  sets: SetDraft[];
-  /** Séries do último treino deste exercício, só para exibir. */
-  previous: SessionSet[] | undefined;
-  /** Mudança feita durante o treino em relação ao plano. */
-  origin?: 'replaced' | 'added';
 }
 
 type PickerState = { mode: 'add' } | { mode: 'replace'; index: number };
@@ -83,6 +77,8 @@ function buildSets(exercise: Exercise, previous: SessionSet[] | undefined): SetD
 }
 
 export function WorkoutSessionScreen({
+  uid,
+  initialDraft,
   plan,
   day,
   allowEdit,
@@ -96,17 +92,24 @@ export function WorkoutSessionScreen({
   useKeepAwake();
   const insets = useSafeAreaInsets();
 
-  const [startedAt] = useState(() => new Date().toISOString());
+  const [startedAt] = useState(() => initialDraft?.startedAt ?? new Date().toISOString());
   const [now, setNow] = useState(() => Date.now());
   const [howToId, setHowToId] = useState<string | null>(null);
-  const [items, setItems] = useState<ExerciseProgress[]>(() =>
-    day.exercises.map((exercise) => {
-      const previous = lastSetsFor(exercise.id);
-      return { exercise, sets: buildSets(exercise, previous), previous };
-    }),
+  const [items, setItems] = useState<ExerciseProgress[]>(
+    () =>
+      initialDraft?.items ??
+      day.exercises.map((exercise) => {
+        const previous = lastSetsFor(exercise.id);
+        return { exercise, sets: buildSets(exercise, previous), previous };
+      }),
   );
   // Cards com todas as séries feitas ficam recolhidos; aqui ficam os reabertos à mão.
-  const [reopenedIds, setReopenedIds] = useState<string[]>([]);
+  const [reopenedIds, setReopenedIds] = useState<string[]>(() => initialDraft?.reopenedIds ?? []);
+
+  // Cada mudança é guardada no aparelho: se o app fechar, o treino volta como estava.
+  useEffect(() => {
+    saveWorkoutDraft(uid, { plan, day, startedAt, items, reopenedIds });
+  }, [uid, plan, day, startedAt, items, reopenedIds]);
   const [editing, setEditing] = useState<{ exerciseIndex: number; setIndex: number } | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const timer = useRestTimer();
