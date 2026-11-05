@@ -11,6 +11,8 @@ export const DEFAULT_REPS = 12;
 export const DEFAULT_WEIGHT = 0;
 
 const MAX_REPS = 100;
+const MAX_SECONDS = 600;
+const SECONDS_STEP = 5;
 const MAX_WEIGHT = 300;
 const WEIGHT_STEP = 1;
 
@@ -20,6 +22,8 @@ interface SetValueSheetProps {
   hint?: string;
   reps: number;
   weight: number;
+  /** Exercício por tempo: o primeiro valor são segundos (passo de 5 s), não repetições. */
+  timed?: boolean;
   onConfirm: (reps: number, weight: number) => void;
   onClose: () => void;
 }
@@ -41,7 +45,7 @@ function buildValues(max: number, step: number, start: number, current: number):
   return values.sort((a, b) => a - b);
 }
 
-export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }: SetValueSheetProps) {
+export function SetValueSheet({ title, hint, reps, weight, timed, onConfirm, onClose }: SetValueSheetProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const [repsValue, setRepsValue] = useState(reps);
   const [weightValue, setWeightValue] = useState(weight);
@@ -49,7 +53,10 @@ export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }:
   const [repsText, setRepsText] = useState('');
   const [weightText, setWeightText] = useState('');
 
-  const repsValues = useMemo(() => buildValues(MAX_REPS, 1, 1, reps), [reps]);
+  const repsValues = useMemo(
+    () => (timed ? buildValues(MAX_SECONDS, SECONDS_STEP, SECONDS_STEP, reps) : buildValues(MAX_REPS, 1, 1, reps)),
+    [reps, timed],
+  );
   const weightValues = useMemo(() => buildValues(MAX_WEIGHT, WEIGHT_STEP, 0, weight), [weight]);
 
   const startTyping = () => {
@@ -60,7 +67,7 @@ export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }:
 
   const handleConfirm = () => {
     if (isTyping) {
-      onConfirm(Math.max(1, Math.round(parse(repsText))), Math.max(0, parse(weightText)));
+      onConfirm(Math.min(timed ? MAX_SECONDS : 999, Math.max(1, Math.round(parse(repsText)))), Math.max(0, parse(weightText)));
     } else {
       onConfirm(repsValue, weightValue);
     }
@@ -74,7 +81,7 @@ export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }:
       {hint && <Text style={styles.hint}>{hint}</Text>}
 
       <View style={styles.headers}>
-        <Text style={styles.headerText}>REPS</Text>
+        <Text style={styles.headerText}>{timed ? 'TEMPO (S)' : 'REPS'}</Text>
         <Text style={styles.headerText}>PESO (KG)</Text>
       </View>
 
@@ -87,7 +94,7 @@ export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }:
             keyboardType="number-pad"
             maxLength={3}
             selectTextOnFocus
-            accessibilityLabel="Repetições"
+            accessibilityLabel={timed ? 'Segundos' : 'Repetições'}
           />
           <TextInput
             style={styles.typedInput}
@@ -104,7 +111,7 @@ export function SetValueSheet({ title, hint, reps, weight, onConfirm, onClose }:
       ) : (
         <View style={styles.wheels}>
           <WheelPicker
-            label="Repetições"
+            label={timed ? 'Segundos' : 'Repetições'}
             values={repsValues}
             value={repsValue}
             onChange={setRepsValue}

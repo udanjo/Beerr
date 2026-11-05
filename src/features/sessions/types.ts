@@ -8,6 +8,8 @@ export interface SessionExercise {
   exerciseId: string;
   name: string;
   libraryId?: string;
+  /** Exercício por tempo: `sets[].reps` são segundos. */
+  timed?: boolean;
   /** Apenas as séries marcadas como feitas. */
   sets: SessionSet[];
 }

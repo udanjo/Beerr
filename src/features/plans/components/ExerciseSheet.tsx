@@ -15,7 +15,7 @@ import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { ExerciseThumb } from '../../exercises/components/ExerciseThumb';
 import { useExerciseName } from '../../exercises/hooks/useCustomExercises';
 import { getLibraryExercise } from '../../exercises/services/exerciseLibrary';
-import { REST_OPTIONS, type Exercise } from '../types';
+import { DEFAULT_SECONDS, REST_OPTIONS, formatSeconds, type Exercise } from '../types';
 
 interface ExerciseSheetProps {
   exercise: Exercise;
@@ -55,6 +55,22 @@ export function ExerciseSheet({
     exercise.sets.map((set) => ({ reps: set.reps || DEFAULT_REPS, weight: set.weight })),
   );
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [timed, setTimed] = useState(Boolean(exercise.timed));
+  // Guarda os valores do outro modo para não perdê-los ao alternar.
+  const [stash, setStash] = useState<number[] | null>(null);
+
+  const switchMode = (next: boolean) => {
+    if (next === timed) return;
+    const current = sets.map((set) => set.reps);
+    setSets((list) =>
+      list.map((set, i) => ({
+        ...set,
+        reps: stash?.[i] ?? stash?.[stash.length - 1] ?? (next ? DEFAULT_SECONDS : DEFAULT_REPS),
+      })),
+    );
+    setStash(current);
+    setTimed(next);
+  };
   const [rest, setRest] = useState(String(exercise.restSeconds));
   const [notes, setNotes] = useState(exercise.notes ?? '');
 
@@ -83,6 +99,7 @@ export function ExerciseSheet({
       ...exercise,
       restSeconds: Math.max(0, Math.round(toNumber(rest))),
       notes: notes.trim() || undefined,
+      timed: timed || undefined,
       sets,
     });
   };
@@ -108,9 +125,29 @@ export function ExerciseSheet({
           <ActionPill icon="swap-vertical" label="Substituir" onPress={() => onReplace(exercise.id)} />
         </View>
 
+        <View style={styles.modeRow}>
+          {([false, true] as const).map((mode) => {
+            const selected = timed === mode;
+            return (
+              <Pressable
+                key={String(mode)}
+                onPress={() => switchMode(mode)}
+                style={[styles.modeOption, selected && styles.restOptionSelected]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={mode ? 'Exercício por tempo' : 'Exercício por repetições'}
+              >
+                <Text style={[styles.restOptionText, selected && styles.restOptionTextSelected]}>
+                  {mode ? 'POR TEMPO' : 'REPETIÇÕES'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <View style={styles.tableHeader}>
           <Text style={[styles.headerText, styles.indexCol]}>SÉRIE</Text>
-          <Text style={[styles.headerText, styles.inputCol]}>REPS</Text>
+          <Text style={[styles.headerText, styles.inputCol]}>{timed ? 'TEMPO' : 'REPS'}</Text>
           <Text style={[styles.headerText, styles.inputCol]}>PESO (KG)</Text>
           <View style={styles.removeCol} />
         </View>
@@ -123,9 +160,13 @@ export function ExerciseSheet({
                 style={styles.valueCol}
                 onPress={() => setEditingIndex(index)}
                 accessibilityRole="button"
-                accessibilityLabel={`Repetições da série ${index + 1}: ${set.reps}. Toque para alterar`}
+                accessibilityLabel={
+                  timed
+                    ? `Tempo da série ${index + 1}: ${set.reps} segundos. Toque para alterar`
+                    : `Repetições da série ${index + 1}: ${set.reps}. Toque para alterar`
+                }
               >
-                <Text style={styles.valueText}>{set.reps}</Text>
+                <Text style={styles.valueText}>{timed ? formatSeconds(set.reps) : set.reps}</Text>
               </Pressable>
               <Pressable
                 style={styles.valueCol}
@@ -213,6 +254,7 @@ export function ExerciseSheet({
           hint={editingIndex < sets.length - 1 ? 'Vale também para as séries seguintes' : undefined}
           reps={sets[editingIndex].reps}
           weight={sets[editingIndex].weight}
+          timed={timed}
           onConfirm={(reps, weight) => updateSet(editingIndex, reps, weight)}
           onClose={() => setEditingIndex(null)}
         />
@@ -277,6 +319,19 @@ const makeStyles = (colors: Palette) =>
     fontFamily: fonts.displayBold,
     fontSize: 16,
     letterSpacing: 0.4,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  modeOption: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
   },
   tableHeader: {
     flexDirection: 'row',

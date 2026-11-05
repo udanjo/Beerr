@@ -30,7 +30,11 @@ function summarize(exercise: Exercise): string {
   };
 
   const parts = [`${sets.length} ${sets.length === 1 ? 'série' : 'séries'}`];
-  parts.push(`${range(sets.map((set) => set.reps))} reps`);
+  parts.push(
+    exercise.timed
+      ? `${range(sets.map((set) => set.reps))} s`
+      : `${range(sets.map((set) => set.reps))} reps`,
+  );
   const weights = sets.map((set) => set.weight);
   if (Math.max(...weights) > 0) parts.push(`${range(weights)} kg`);
   return parts.join(' • ');

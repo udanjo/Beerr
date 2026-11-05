@@ -20,9 +20,17 @@ import { getLibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { ExerciseLibrary } from '../../exercises/components/ExerciseLibrary';
 import type { LibraryExercise } from '../../exercises/services/exerciseLibrary';
 import { createExerciseFromLibrary } from '../../plans/services/exerciseFactory';
-import { displayDayLabel, type Exercise, type Plan, type PlanDay } from '../../plans/types';
+import {
+  DEFAULT_SECONDS,
+  displayDayLabel,
+  formatSeconds,
+  type Exercise,
+  type Plan,
+  type PlanDay,
+} from '../../plans/types';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { useRestTimer } from '../hooks/useRestTimer';
+import { useSetTimer, type SetTimerTarget } from '../hooks/useSetTimer';
 import {
   saveWorkoutDraft,
   type ExerciseProgress,
@@ -39,7 +47,7 @@ interface WorkoutSessionScreenProps {
   day: PlanDay;
   /** Configuração: permite trocar/adicionar exercícios durante o treino. */
   allowEdit: boolean;
-  lastSetsFor: (exerciseId: string) => SessionSet[] | undefined;
+  lastSetsFor: (exerciseId: string, timed?: boolean) => SessionSet[] | undefined;
   onFinish: (session: WorkoutSession) => void;
   /** Grava no plano de origem a lista de exercícios do dia como ficou no treino. */
   onUpdatePlan: (exercises: Exercise[]) => void;
@@ -52,7 +60,14 @@ function pluralExercises(count: number): string {
   return `${count} ${count === 1 ? 'exercício' : 'exercícios'}`;
 }
 
-function formatPrevious(sets: SessionSet[]): string {
+function formatPrevious(sets: SessionSet[], timed?: boolean): string {
+  if (timed) {
+    return sets
+      .map((set) =>
+        set.weight > 0 ? `${formatSeconds(set.reps)}×${formatWeight(set.weight)}` : formatSeconds(set.reps),
+      )
+      .join(' · ');
+  }
   return sets.map((set) => `${set.reps}×${formatWeight(set.weight)}`).join(' · ');
 }
 
@@ -70,7 +85,7 @@ function buildSets(exercise: Exercise, previous: SessionSet[] | undefined): SetD
     const last = previous?.[index] ?? previous?.[previous.length - 1];
     return {
       weight: last?.weight ?? planned.weight ?? DEFAULT_WEIGHT,
-      reps: last?.reps || planned.reps || DEFAULT_REPS,
+      reps: last?.reps || planned.reps || (exercise.timed ? DEFAULT_SECONDS : DEFAULT_REPS),
       done: false,
     };
   });
@@ -99,7 +114,7 @@ export function WorkoutSessionScreen({
     () =>
       initialDraft?.items ??
       day.exercises.map((exercise) => {
-        const previous = lastSetsFor(exercise.id);
+        const previous = lastSetsFor(exercise.id, exercise.timed);
         return { exercise, sets: buildSets(exercise, previous), previous };
       }),
   );
@@ -113,6 +128,18 @@ export function WorkoutSessionScreen({
   const [editing, setEditing] = useState<{ exerciseIndex: number; setIndex: number } | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const timer = useRestTimer();
+  // Série por tempo: ao zerar, marca a série como feita (o que também inicia o descanso).
+  const setTimer = useSetTimer((target) => {
+    const index = items.findIndex((item) => item.exercise.id === target.exerciseId);
+    if (index >= 0 && !items[index].sets[target.setIndex]?.done) toggleDone(index, target.setIndex);
+  });
+  const isTimerOn = (exerciseId: string, setIndex: number) =>
+    setTimer.target?.exerciseId === exerciseId && setTimer.target.setIndex === setIndex;
+
+  const startSetTimer = (target: SetTimerTarget, seconds: number) => {
+    timer.stop();
+    setTimer.start(target, seconds);
+  };
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
@@ -131,7 +158,9 @@ export function WorkoutSessionScreen({
   const doneSets = items.reduce((sum, item) => sum + item.sets.filter((s) => s.done).length, 0);
   const volume = items.reduce(
     (sum, item) =>
-      sum + item.sets.reduce((acc, set) => (set.done ? acc + set.reps * set.weight : acc), 0),
+      item.exercise.timed
+        ? sum
+        : sum + item.sets.reduce((acc, set) => (set.done ? acc + set.reps * set.weight : acc), 0),
     0,
   );
   const elapsedSeconds = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
@@ -154,6 +183,7 @@ export function WorkoutSessionScreen({
   };
 
   const toggleDone = (exerciseIndex: number, setIndex: number) => {
+    if (isTimerOn(items[exerciseIndex].exercise.id, setIndex)) setTimer.cancel();
     const next = items.map((item, i) =>
       i !== exerciseIndex
         ? item
@@ -196,6 +226,7 @@ export function WorkoutSessionScreen({
   // Marcar todas não dispara o descanso: quem usa já terminou o exercício.
   const markAll = (exerciseIndex: number) => {
     const finishedId = items[exerciseIndex]?.exercise.id;
+    if (setTimer.target?.exerciseId === finishedId) setTimer.cancel();
     setReopenedIds((current) => current.filter((id) => id !== finishedId));
     setItems((current) =>
       current.map((item, i) =>
@@ -231,6 +262,7 @@ export function WorkoutSessionScreen({
       );
       return;
     }
+    if (setTimer.target?.exerciseId === items[exerciseIndex].exercise.id) setTimer.cancel();
     setPicker({ mode: 'replace', index: exerciseIndex });
   };
 
@@ -277,6 +309,7 @@ export function WorkoutSessionScreen({
         exerciseId: exercise.id,
         name: nameOf(exercise),
         libraryId: exercise.libraryId,
+        timed: exercise.timed,
         sets: sets
           .filter((set) => set.done)
           .map((set) => ({ weight: set.weight, reps: set.reps })),
@@ -444,7 +477,7 @@ export function WorkoutSessionScreen({
                   </Text>
                   {item.previous && item.previous.length > 0 && (
                     <Text style={styles.previous} numberOfLines={1}>
-                      Última vez: {formatPrevious(item.previous)}
+                      Última vez: {formatPrevious(item.previous, item.exercise.timed)}
                     </Text>
                   )}
                 </View>
@@ -469,45 +502,122 @@ export function WorkoutSessionScreen({
 
               <View style={styles.setHeader}>
                 <Text style={[styles.setHeaderText, styles.indexCol]}>SÉRIE</Text>
-                <Text style={[styles.setHeaderText, styles.headerCol]}>REPS</Text>
+                <Text style={[styles.setHeaderText, styles.headerCol]}>{item.exercise.timed ? 'TEMPO' : 'REPS'}</Text>
                 <Text style={[styles.setHeaderText, styles.headerCol]}>PESO (KG)</Text>
                 <View style={styles.checkSpacer} />
               </View>
 
-              {item.sets.map((set, setIndex) => (
-                <View key={setIndex} style={[styles.setRow, set.done && styles.setRowDone]}>
-                  <Text style={[styles.indexText, styles.indexCol]}>{setIndex + 1}</Text>
-                  <Pressable
-                    style={styles.valueCol}
-                    onPress={() => setEditing({ exerciseIndex, setIndex })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Repetições da série ${setIndex + 1}: ${set.reps}. Toque para alterar`}
+              {item.sets.map((set, setIndex) => {
+                const timed = Boolean(item.exercise.timed);
+                const timerOn = timed && isTimerOn(item.exercise.id, setIndex);
+                const paused = timerOn && setTimer.phase === 'paused';
+                const prep = timerOn && setTimer.phase === 'prep';
+                return (
+                  <View
+                    key={setIndex}
+                    style={[styles.setRow, timed && styles.setRowTimed, set.done && styles.setRowDone]}
                   >
-                    <Text style={styles.valueText}>{set.reps}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.valueCol}
-                    onPress={() => setEditing({ exerciseIndex, setIndex })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Carga da série ${setIndex + 1}: ${formatWeight(set.weight)} quilos. Toque para alterar`}
-                  >
-                    <Text style={styles.valueText}>{formatWeight(set.weight)}</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => toggleDone(exerciseIndex, setIndex)}
-                    style={[styles.check, set.done && styles.checkDone]}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: set.done }}
-                    accessibilityLabel={`Série ${setIndex + 1} concluída`}
-                  >
-                    <Ionicons
-                      name="checkmark"
-                      size={20}
-                      color={set.done ? colors.onPrimary : colors.textMuted}
-                    />
-                  </Pressable>
-                </View>
-              ))}
+                    <Text style={[styles.indexText, styles.indexCol]}>{setIndex + 1}</Text>
+                    {timerOn ? (
+                      <>
+                        <Pressable
+                          style={styles.timerBlock}
+                          onPress={
+                            prep
+                              ? () => setTimer.start(setTimer.target as SetTimerTarget, set.reps, true)
+                              : undefined
+                          }
+                          accessibilityRole="timer"
+                          accessibilityLabel={
+                            prep
+                              ? `Prepare-se, começa em ${setTimer.remaining}. Toque para pular`
+                              : paused
+                                ? `Pausado, restam ${setTimer.remaining} segundos`
+                                : `${setTimer.remaining} segundos restantes`
+                          }
+                        >
+                          <Text
+                            style={[styles.timerValue, paused && styles.timerPaused]}
+                            accessibilityElementsHidden
+                          >
+                            {prep ? setTimer.remaining : formatSeconds(setTimer.remaining)}
+                          </Text>
+                          <Text style={styles.timerStatus} accessibilityLiveRegion="polite">
+                            {prep ? 'PREPARE-SE' : paused ? 'PAUSADO' : 'EM ANDAMENTO'}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={paused ? setTimer.resume : setTimer.pause}
+                          style={styles.check}
+                          accessibilityRole="button"
+                          accessibilityLabel={paused ? 'Retomar' : 'Pausar'}
+                        >
+                          <Ionicons name={paused ? 'play' : 'pause'} size={20} color={colors.text} />
+                        </Pressable>
+                        <Pressable
+                          onPress={setTimer.cancel}
+                          style={[styles.check, styles.cancelTimer]}
+                          accessibilityRole="button"
+                          accessibilityLabel="Cancelar contagem"
+                        >
+                          <Ionicons name="close" size={20} color={colors.danger} />
+                        </Pressable>
+                      </>
+                    ) : (
+                      <>
+                        <Pressable
+                          style={styles.valueCol}
+                          onPress={() => setEditing({ exerciseIndex, setIndex })}
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            timed
+                              ? `Tempo da série ${setIndex + 1}: ${set.reps} segundos. Toque para alterar`
+                              : `Repetições da série ${setIndex + 1}: ${set.reps}. Toque para alterar`
+                          }
+                        >
+                          <Text style={styles.valueText}>{timed ? formatSeconds(set.reps) : set.reps}</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.valueCol}
+                          onPress={() => setEditing({ exerciseIndex, setIndex })}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Carga da série ${setIndex + 1}: ${formatWeight(set.weight)} quilos. Toque para alterar`}
+                        >
+                          <Text style={styles.valueText}>{formatWeight(set.weight)}</Text>
+                        </Pressable>
+                        {timed && !set.done ? (
+                          <Pressable
+                            onPress={() =>
+                              startSetTimer({ exerciseId: item.exercise.id, setIndex }, set.reps)
+                            }
+                            onLongPress={() => toggleDone(exerciseIndex, setIndex)}
+                            style={[styles.check, styles.checkPlay]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Iniciar série ${setIndex + 1}, ${set.reps} segundos`}
+                            accessibilityHint="Mantenha pressionado para marcar como feita sem cronometrar"
+                          >
+                            <Ionicons name="play" size={18} color={colors.onPrimary} />
+                          </Pressable>
+                        ) : (
+                          <Pressable
+                            onPress={() => toggleDone(exerciseIndex, setIndex)}
+                            style={[styles.check, set.done && styles.checkDone]}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: set.done }}
+                            accessibilityLabel={`Série ${setIndex + 1} concluída`}
+                          >
+                            <Ionicons
+                              name="checkmark"
+                              size={20}
+                              color={set.done ? colors.onPrimary : colors.textMuted}
+                            />
+                          </Pressable>
+                        )}
+                      </>
+                    )}
+                  </View>
+                );
+              })}
 
               <View style={styles.actions}>
                 <Pressable
@@ -619,6 +729,7 @@ export function WorkoutSessionScreen({
           }
           reps={editingItem.sets[editing.setIndex].reps}
           weight={editingItem.sets[editing.setIndex].weight}
+          timed={editingItem.exercise.timed}
           onConfirm={(reps, weight) => updateSet(editing.exerciseIndex, editing.setIndex, reps, weight)}
           onClose={() => setEditing(null)}
         />
@@ -776,6 +887,9 @@ const makeStyles = (colors: Palette) =>
     borderColor: 'transparent',
     backgroundColor: colors.surfaceAlt,
   },
+  setRowTimed: {
+    minHeight: 60,
+  },
   setRowDone: {
     borderColor: colors.accent,
   },
@@ -804,6 +918,34 @@ const makeStyles = (colors: Palette) =>
     justifyContent: 'center',
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
+  },
+  checkPlay: {
+    backgroundColor: colors.primary,
+  },
+  cancelTimer: {
+    marginLeft: 16,
+  },
+  timerBlock: {
+    flex: 1,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerValue: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 32,
+    lineHeight: 36,
+    fontVariant: ['tabular-nums'],
+  },
+  timerPaused: {
+    opacity: 0.5,
+  },
+  timerStatus: {
+    color: colors.textMuted,
+    fontFamily: fonts.displayBold,
+    fontSize: 12,
+    letterSpacing: 0.6,
   },
   checkDone: {
     backgroundColor: colors.primary,

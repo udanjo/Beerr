@@ -40,6 +40,16 @@ export interface Exercise {
   restSeconds: number;
   /** Observação livre do usuário (ajuste do banco, pegada, dor, etc.). */
   notes?: string;
+  /** Exercício por tempo (ex.: prancha): em `sets[].reps` ficam os segundos de cada série. */
+  timed?: boolean;
+}
+
+export const DEFAULT_SECONDS = 30;
+
+/** "30 s", "1:00", "1:30": segundos no formato curto. */
+export function formatSeconds(total: number): string {
+  if (total < 60) return `${total} s`;
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 export interface PlanDay {

@@ -34,6 +34,7 @@ function normalizeExercise(stored: StoredExercise): Exercise {
     sets,
     restSeconds: stored.restSeconds ?? DEFAULT_REST_SECONDS,
     notes: stored.notes,
+    timed: stored.timed,
   };
 }
 

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
-import { displayDayLabel } from '../../plans/types';
+import { displayDayLabel, formatSeconds } from '../../plans/types';
 import type { WorkoutSession } from '../types';
 
 const COLLAPSED_EXERCISES = 3;
@@ -33,7 +33,9 @@ function durationMinutes(session: WorkoutSession): number {
 function volumeKg(session: WorkoutSession): number {
   return session.exercises.reduce(
     (total, exercise) =>
-      total + exercise.sets.reduce((sum, set) => sum + set.reps * set.weight, 0),
+      exercise.timed
+        ? total
+        : total + exercise.sets.reduce((sum, set) => sum + set.reps * set.weight, 0),
     0,
   );
 }
@@ -106,7 +108,9 @@ function SessionCard({
           <Text style={styles.exerciseSets}>
             {exercise.sets.length} {exercise.sets.length === 1 ? 'série' : 'séries'}
             {' · '}
-            {Math.max(...exercise.sets.map((set) => set.weight))} kg
+            {exercise.timed
+              ? formatSeconds(Math.max(...exercise.sets.map((set) => set.reps)))
+              : `${Math.max(...exercise.sets.map((set) => set.weight))} kg`}
           </Text>
         </View>
       ))}

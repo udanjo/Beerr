@@ -33,9 +33,12 @@ export function useSessions(uid: string) {
 
   /** Séries do treino mais recente em que o exercício foi feito. */
   const lastSetsFor = useCallback(
-    (exerciseId: string): SessionSet[] | undefined => {
+    (exerciseId: string, timed?: boolean): SessionSet[] | undefined => {
       for (const session of sessions) {
-        const found = session.exercises.find((exercise) => exercise.exerciseId === exerciseId);
+        // Só vale o treino no mesmo modo (tempo ou repetições), para não preencher 12 reps como 12 s.
+        const found = session.exercises.find(
+          (exercise) => exercise.exerciseId === exerciseId && Boolean(exercise.timed) === Boolean(timed),
+        );
         if (found && found.sets.length > 0) return found.sets;
       }
       return undefined;

@@ -57,7 +57,9 @@ export function sessionMinutes(session: WorkoutSession): number {
 export function sessionVolume(session: WorkoutSession): number {
   return session.exercises.reduce(
     (total, exercise) =>
-      total + exercise.sets.reduce((sum, set) => sum + set.reps * set.weight, 0),
+      exercise.timed
+        ? total
+        : total + exercise.sets.reduce((sum, set) => sum + set.reps * set.weight, 0),
     0,
   );
 }
