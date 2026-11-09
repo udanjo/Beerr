@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
 import { BottomSheet } from '../../../shared/components/BottomSheet';
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
@@ -16,6 +16,8 @@ interface PlanSwitcherSheetProps {
   onSelect: (planId: string) => void;
   onDelete: (plan: Plan) => void;
   onRenew: (plan: Plan) => void;
+  /** Abre a seção "Vencidos" já expandida e rola até ela (ex.: toque no chip de vencidos). */
+  expandExpired?: boolean;
   onCreate: () => void;
   onCreateAuto: () => void;
   onClose: () => void;
@@ -28,12 +30,23 @@ export function PlanSwitcherSheet({
   onSelect,
   onDelete,
   onRenew,
+  expandExpired = false,
   onCreate,
   onCreateAuto,
   onClose,
 }: PlanSwitcherSheetProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const [showExpired, setShowExpired] = useState(false);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+
+  // A expansão vale só para esta abertura; no caminho normal os vencidos ficam recolhidos.
+  useEffect(() => {
+    if (!visible) return;
+    setShowExpired(expandExpired);
+    if (!expandExpired) return;
+    const timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+    return () => clearTimeout(timer);
+  }, [visible, expandExpired]);
   const now = new Date();
   const current = plans.filter((plan) => !isExpired(plan, now));
   const expired = plans.filter((plan) => isExpired(plan, now));
@@ -67,16 +80,20 @@ export function PlanSwitcherSheet({
             ) : null}
           </Text>
         </Pressable>
-        {isOld && (
-          <Pressable
-            onPress={() => onRenew(plan)}
-            style={styles.renewButton}
-            accessibilityRole="button"
-            accessibilityLabel={`Reativar plano ${plan.name}`}
-          >
-            <Text style={styles.renewText}>Reativar</Text>
-          </Pressable>
-        )}
+        <Pressable
+          onPress={() => onRenew(plan)}
+          style={styles.renewButton}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isOld
+              ? `Reativar plano ${plan.name}`
+              : plan.expiresAt
+                ? `Alterar prazo do plano ${plan.name}`
+                : `Definir prazo do plano ${plan.name}`
+          }
+        >
+          <Text style={styles.renewText}>{isOld ? 'Reativar' : plan.expiresAt ? 'Prazo' : 'Definir prazo'}</Text>
+        </Pressable>
         <Pressable
           onPress={() => onDelete(plan)}
           style={styles.deleteButton}
@@ -93,7 +110,7 @@ export function PlanSwitcherSheet({
     <BottomSheet visible={visible} onClose={onClose}>
       <Text style={styles.title}>Meus planos</Text>
 
-      <ScrollView style={styles.list}>
+      <ScrollView ref={scrollRef} style={styles.list}>
         {current.map((plan) => renderRow(plan))}
 
         {expired.length > 0 && (

@@ -21,6 +21,8 @@ import { fontSize, fonts, radius, type Palette } from '../../../shared/theme';
 import { useThemedStyles } from '../../../shared/theme/ThemeContext';
 import { DayTabs } from '../components/DayTabs';
 import { ExerciseRow } from '../components/ExerciseRow';
+import { ExpirySheet } from '../components/ExpirySheet';
+import { dateKeyFromToday, formatDateKey } from '../services/planExpiry';
 import type { Plan } from '../types';
 import { buildPlanFromSpec } from './buildPlan';
 import { generatePlanLocal } from './generatePlan';
@@ -35,6 +37,11 @@ import type { AutoPlanAnswers } from './types';
 
 const HEALTH_KEY = '@beerr/autoplan/healthAck';
 const SUMMARY = QUESTIONS.length;
+const EXPIRY_PRESETS = [
+  { label: '4 sem', days: 28 },
+  { label: '8 sem', days: 56 },
+  { label: '12 sem', days: 84 },
+];
 
 interface AutoPlanFlowProps {
   onSave: (plan: Plan) => void;
@@ -67,6 +74,10 @@ export function AutoPlanFlow({ onSave, onClose }: AutoPlanFlowProps) {
   const [failed, setFailed] = useState(false);
   const [planName, setPlanName] = useState('');
   const [dayId, setDayId] = useState<string | null>(null);
+  // Prazo opcional; `presetDays` marca o atalho usado (a data é fixada no toque).
+  const [expiresAt, setExpiresAt] = useState<string | undefined>(undefined);
+  const [presetDays, setPresetDays] = useState<number | null>(null);
+  const [isDateOpen, setIsDateOpen] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(HEALTH_KEY)
@@ -153,7 +164,7 @@ export function AutoPlanFlow({ onSave, onClose }: AutoPlanFlowProps) {
 
   const save = () => {
     if (!generated) return;
-    onSave({ ...generated.plan, name: planName.trim() || generated.plan.name });
+    onSave({ ...generated.plan, name: planName.trim() || generated.plan.name, expiresAt });
   };
 
   const header = (
@@ -283,6 +294,50 @@ export function AutoPlanFlow({ onSave, onClose }: AutoPlanFlowProps) {
               placeholderTextColor={colors.textMuted}
               accessibilityLabel="Nome do plano"
             />
+            <Text style={styles.label}>PRAZO (OPCIONAL)</Text>
+            <View style={styles.chipRow}>
+              <Pressable
+                onPress={() => {
+                  setExpiresAt(undefined);
+                  setPresetDays(null);
+                }}
+                style={[styles.chip, !expiresAt && styles.chipSelected]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: !expiresAt }}
+              >
+                <Text style={[styles.chipText, !expiresAt && styles.chipTextSelected]}>Sem prazo</Text>
+              </Pressable>
+              {EXPIRY_PRESETS.map((preset) => {
+                const selected = presetDays === preset.days;
+                return (
+                  <Pressable
+                    key={preset.days}
+                    onPress={() => {
+                      setExpiresAt(dateKeyFromToday(preset.days));
+                      setPresetDays(preset.days);
+                    }}
+                    style={[styles.chip, selected && styles.chipSelected]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{preset.label}</Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                onPress={() => setIsDateOpen(true)}
+                style={[styles.chip, !!expiresAt && presetDays === null && styles.chipSelected]}
+                accessibilityRole="button"
+                accessibilityLabel="Escolher data do prazo"
+              >
+                <Text
+                  style={[styles.chipText, !!expiresAt && presetDays === null && styles.chipTextSelected]}
+                >
+                  Data…
+                </Text>
+              </Pressable>
+            </View>
+            {expiresAt && <Text style={styles.hint}>Vence em {formatDateKey(expiresAt)}</Text>}
             <Text style={styles.reviewSummary}>
               {generated.plan.days.length} treinos · {totalExercises} exercícios
             </Text>
@@ -320,6 +375,20 @@ export function AutoPlanFlow({ onSave, onClose }: AutoPlanFlowProps) {
         </>
       )}
 
+      {isDateOpen && (
+        <ExpirySheet
+          visible
+          title="Prazo do plano"
+          value={expiresAt}
+          onConfirm={(next) => {
+            setExpiresAt(next);
+            setPresetDays(null);
+            setIsDateOpen(false);
+          }}
+          onClose={() => setIsDateOpen(false)}
+        />
+      )}
+
       <BottomSheet visible={healthAck === false} onClose={onClose}>
         <Text style={styles.sheetTitle}>Antes de começar</Text>
         <Text style={styles.sheetText}>
@@ -342,6 +411,19 @@ const makeStyles = (colors: Palette) =>
       minHeight: 56,
     },
     iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+      minHeight: 44,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+    },
+    chipSelected: { backgroundColor: colors.primary },
+    chipText: { color: colors.text, fontFamily: fonts.bodyMedium, fontSize: fontSize.sm },
+    chipTextSelected: { color: colors.onPrimary },
+    hint: { color: colors.textMuted, fontFamily: fonts.body, fontSize: fontSize.sm },
     progress: { color: colors.textMuted, fontFamily: fonts.bodyMedium, fontSize: fontSize.sm },
     progressTrack: { height: 4, marginHorizontal: 20, borderRadius: 2, backgroundColor: colors.surface },
     progressFill: { height: 4, borderRadius: 2, backgroundColor: colors.accent },

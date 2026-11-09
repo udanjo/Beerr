@@ -32,7 +32,7 @@ import { ExpirySheet } from '../components/ExpirySheet';
 import { PlanSwitcherSheet } from '../components/PlanSwitcherSheet';
 import { usePlans } from '../hooks/usePlans';
 import { createExerciseFromLibrary } from '../services/exerciseFactory';
-import { expiryText, isExpired, isExpiringSoon } from '../services/planExpiry';
+import { expiryText, formatDateKey, isExpired, isExpiringSoon } from '../services/planExpiry';
 import { displayDayLabel, type Exercise, type NewPlan, type Plan, type PlanDay } from '../types';
 
 interface PlanScreenProps {
@@ -87,6 +87,7 @@ export function PlanScreen({
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const [renewingId, setRenewingId] = useState<string | null>(null);
+  const [expandExpired, setExpandExpired] = useState(false);
   const [howToId, setHowToId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
   const [movedId, setMovedId] = useState<string | null>(null);
@@ -113,6 +114,11 @@ export function PlanScreen({
     setToast('Plano reativado');
   };
 
+  const openSwitcher = (showExpired: boolean) => {
+    setExpandExpired(showExpired);
+    setIsSwitcherOpen(true);
+  };
+
   useEffect(() => {
     if (isLoading) return;
     syncExpiryReminders(plans, remindersEnabled).catch(() => undefined);
@@ -130,7 +136,8 @@ export function PlanScreen({
     if (!focusRequest) return;
     setSelectedPlanId(focusRequest.planId);
     setSelectedDayId(null);
-    setIsSwitcherOpen(true);
+    openSwitcher(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
 
   const plan = plans.find((item) => item.id === selectedPlanId) ?? currentPlans[0] ?? null;
@@ -296,14 +303,14 @@ export function PlanScreen({
           onCreate={() => setIsFormOpen(true)}
           onCreateAuto={() => setIsAutoOpen(true)}
           onReactivate={() =>
-            expiredPlans.length === 1 ? setRenewingId(expiredPlans[0].id) : setIsSwitcherOpen(true)
+            expiredPlans.length === 1 ? setRenewingId(expiredPlans[0].id) : openSwitcher(true)
           }
         />
       ) : (
         <>
           <View style={styles.header}>
             <Pressable
-              onPress={() => setIsSwitcherOpen(true)}
+              onPress={() => openSwitcher(false)}
               style={styles.planSelector}
               accessibilityRole="button"
               accessibilityLabel={`Plano ${plan.name}. Toque para trocar de plano`}
@@ -316,7 +323,7 @@ export function PlanScreen({
             </Pressable>
             {expiredPlans.length > 0 && (
               <Pressable
-                onPress={() => setIsSwitcherOpen(true)}
+                onPress={() => openSwitcher(true)}
                 style={styles.expiredChip}
                 accessibilityRole="button"
                 accessibilityLabel={`${expiredPlans.length} ${expiredPlans.length === 1 ? 'plano vencido' : 'planos vencidos'}. Toque para ver`}
@@ -340,6 +347,24 @@ export function PlanScreen({
                 {plan.name} {expiryText(plan, now)}
               </Text>
               <Text style={styles.bannerAction}>{isExpired(plan, now) ? 'REATIVAR' : 'RENOVAR'}</Text>
+            </Pressable>
+          )}
+
+          {!isExpired(plan, now) && !isExpiringSoon(plan, now) && (
+            <Pressable
+              onPress={() => setRenewingId(plan.id)}
+              style={styles.expiryLink}
+              accessibilityRole="button"
+              accessibilityLabel={
+                plan.expiresAt
+                  ? `Prazo do plano: ${formatDateKey(plan.expiresAt)}. Alterar`
+                  : 'Plano sem prazo. Definir prazo'
+              }
+            >
+              <Ionicons name="calendar-outline" size={16} color={colors.accent} />
+              <Text style={styles.expiryLinkText}>
+                {plan.expiresAt ? `Prazo: ${formatDateKey(plan.expiresAt)} · alterar` : 'Definir prazo'}
+              </Text>
             </Pressable>
           )}
 
@@ -466,6 +491,7 @@ export function PlanScreen({
         }}
         onDelete={handleDeletePlan}
         onRenew={(target) => setRenewingId(target.id)}
+        expandExpired={expandExpired}
         onCreate={() => {
           setIsSwitcherOpen(false);
           setIsFormOpen(true);
@@ -528,7 +554,9 @@ export function PlanScreen({
       {renewingId && (
         <ExpirySheet
           visible
-          title={renewingExpired ? 'Reativar plano' : 'Renovar prazo'}
+          title={
+            renewingExpired ? 'Reativar plano' : renewingPlan?.expiresAt ? 'Alterar prazo' : 'Definir prazo'
+          }
           reactivate={renewingExpired}
           value={renewingPlan?.expiresAt}
           onConfirm={(next) => {
@@ -537,6 +565,7 @@ export function PlanScreen({
             } else {
               setPlanExpiry(renewingId, next);
               setRenewingId(null);
+              setToast(next ? `Prazo definido para ${formatDateKey(next).slice(0, 5)}` : 'Prazo removido');
             }
           }}
           onClose={() => setRenewingId(null)}
@@ -810,6 +839,19 @@ const makeStyles = (colors: Palette) =>
     fontSize: fontSize.md,
     lineHeight: 24,
     textAlign: 'center',
+  },
+  expiryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 20,
+  },
+  expiryLinkText: {
+    color: colors.accent,
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSize.sm,
   },
   banner: {
     flexDirection: 'row',
