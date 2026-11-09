@@ -875,6 +875,8 @@ export function WorkoutSessionScreen({
             single={picker?.mode === 'replace'}
             confirmLabel={picker?.mode === 'replace' ? 'Substituir' : 'Adicionar'}
             preferredGroups={day.muscleGroups}
+            similarTo={picker?.mode === 'replace' ? items[picker.index]?.exercise.libraryId : undefined}
+            excludeIds={items.flatMap((item) => (item.exercise.libraryId ? [item.exercise.libraryId] : []))}
             onConfirm={handlePickerConfirm}
             onClose={() => setPicker(null)}
           />

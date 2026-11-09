@@ -79,7 +79,53 @@ export function listExercises({
     .sort((a, b) => Number(preferred.includes(b.group)) - Number(preferred.includes(a.group)));
 }
 
-export function countByGroup(): Map<MuscleGroup, number> {
+export interface Suggestion {
+  exercise: LibraryExercise;
+  /** Por que é parecido, em texto curto (ex.: "Mesmo músculo · Halteres"). */
+  reason: string;
+}
+
+/**
+ * Alternativas parecidas, por regras locais e sem sorteio: mesmo grupo muscular, ordenadas por
+ * mesmo músculo principal + mesmo equipamento, depois mesmo músculo, depois músculos secundários
+ * em comum e nível. Vazio se o exercício não for da biblioteca.
+ */
+export function suggestSimilar(libraryId: string, excludeIds: string[] = [], limit = 3): Suggestion[] {
+  const base = getLibraryExercise(libraryId);
+  if (!base) return [];
+
+  return [...getCustomExercises(), ...exercises]
+    .filter(
+      (candidate) =>
+        candidate.group === base.group && candidate.id !== base.id && !excludeIds.includes(candidate.id),
+    )
+    .map((candidate) => ({
+      candidate,
+      sameTarget: candidate.target === base.target,
+      sameEquipment: candidate.equipment !== null && candidate.equipment === base.equipment,
+      shared: candidate.secondary.filter((muscle) => base.secondary.includes(muscle)).length,
+      sameLevel: candidate.level === base.level,
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.sameTarget) - Number(a.sameTarget) ||
+        Number(b.sameEquipment) - Number(a.sameEquipment) ||
+        b.shared - a.shared ||
+        Number(b.sameLevel) - Number(a.sameLevel) ||
+        a.candidate.name.localeCompare(b.candidate.name, 'pt-BR'),
+    )
+    .slice(0, limit)
+    .map(({ candidate, sameTarget, sameEquipment }) => ({
+      exercise: candidate,
+      reason: sameTarget
+        ? sameEquipment && candidate.equipment
+          ? `Mesmo músculo · ${candidate.equipment}`
+          : 'Mesmo músculo · outro equipamento'
+        : `Mesmo grupo · ${candidate.target}`,
+    }));
+}
+
+export function countByGroup():Map<MuscleGroup, number> {
   const counts = new Map<MuscleGroup, number>();
   for (const exercise of [...getCustomExercises(), ...exercises]) {
     counts.set(exercise.group, (counts.get(exercise.group) ?? 0) + 1);

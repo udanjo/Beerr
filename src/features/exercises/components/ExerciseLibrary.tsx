@@ -13,6 +13,7 @@ import {
   countByGroup,
   getLibraryExercise,
   listExercises,
+  suggestSimilar,
   type LibraryExercise,
 } from '../services/exerciseLibrary';
 import { useCustomExercises } from '../hooks/useCustomExercises';
@@ -38,6 +39,10 @@ interface ExerciseLibraryProps {
   single?: boolean;
   confirmLabel?: string;
   preferredGroups?: MuscleGroup[];
+  /** Exercício que está sendo substituído (id da biblioteca): mostra sugestões parecidas no topo. */
+  similarTo?: string;
+  /** Ids da biblioteca que não devem ser sugeridos (ex.: já estão no treino). */
+  excludeIds?: string[];
   /** Espaço extra no fim da lista (ex.: para a barra de abas flutuante). */
   bottomPadding?: number;
   onConfirm?: (selected: LibraryExercise[]) => void;
@@ -50,6 +55,8 @@ export function ExerciseLibrary({
   single = false,
   confirmLabel = 'Adicionar',
   preferredGroups,
+  similarTo,
+  excludeIds,
   bottomPadding = 0,
   onConfirm,
   onClose,
@@ -85,6 +92,20 @@ export function ExerciseLibrary({
       preferred: tab === 'all' ? preferredGroups : undefined,
     });
   }, [showGroupList, tab, openGroup, query, preferredGroups, filterByDay, customExercises]);
+
+  // Sugestões só na troca de um exercício, na aba "Todos", sem busca e sem teclado aberto.
+  const suggestions = useMemo(
+    () => (single && similarTo ? suggestSimilar(similarTo, excludeIds) : []),
+    [single, similarTo, excludeIds, customExercises],
+  );
+  const showSuggestions = suggestions.length > 0 && tab === 'all' && !isSearching && !searchFocused;
+  const listData = useMemo(
+    () =>
+      showSuggestions
+        ? results.filter((exercise) => !suggestions.some((item) => item.exercise.id === exercise.id))
+        : results,
+    [results, showSuggestions, suggestions],
+  );
 
   const toggle = useCallback(
     (id: string) => {
@@ -253,10 +274,33 @@ export function ExerciseLibrary({
         />
       ) : (
         <FlatList
-          data={results}
+          data={listData}
           keyExtractor={(exercise) => exercise.id}
           extraData={selectedIds}
           keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            showSuggestions ? (
+              <View>
+                <Text style={styles.suggestTitle} accessibilityRole="header">
+                  SUGERIDOS PARA SUBSTITUIR
+                </Text>
+                {suggestions.map(({ exercise, reason }) => (
+                  <ExerciseListRow
+                    key={exercise.id}
+                    exercise={exercise}
+                    meta={reason}
+                    selectable={selectable}
+                    selected={selectedIds.includes(exercise.id)}
+                    onToggle={toggle}
+                    onOpen={setDetailId}
+                  />
+                ))}
+                <Text style={styles.suggestTitle} accessibilityRole="header">
+                  TODOS
+                </Text>
+              </View>
+            ) : undefined
+          }
           initialNumToRender={10}
           windowSize={7}
           contentContainerStyle={{ paddingBottom: bottomPadding + footerHeight + 16 }}
@@ -315,12 +359,15 @@ interface ExerciseListRowProps {
   exercise: LibraryExercise;
   selectable: boolean;
   selected: boolean;
+  /** Texto no lugar de "músculo · equipamento" (ex.: o motivo de uma sugestão). */
+  meta?: string;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
 }
 
 const ExerciseListRow = memo(function ExerciseListRow({
   exercise,
+  meta,
   selectable,
   selected,
   onToggle,
@@ -333,7 +380,7 @@ const ExerciseListRow = memo(function ExerciseListRow({
       style={styles.row}
       accessibilityRole={selectable ? 'checkbox' : 'button'}
       accessibilityState={selectable ? { checked: selected } : undefined}
-      accessibilityLabel={exercise.name}
+      accessibilityLabel={meta ? `${exercise.name}, sugestão, ${meta}` : exercise.name}
     >
       <Pressable
         onPress={() => onOpen(exercise.id)}
@@ -353,8 +400,7 @@ const ExerciseListRow = memo(function ExerciseListRow({
           )}
         </View>
         <Text style={styles.rowMeta}>
-          {exercise.target}
-          {exercise.equipment ? ` · ${exercise.equipment}` : ''}
+          {meta ?? `${exercise.target}${exercise.equipment ? ` · ${exercise.equipment}` : ''}`}
         </Text>
       </View>
       {selectable && (
@@ -474,6 +520,15 @@ const makeStyles = (colors: Palette) =>
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  suggestTitle: {
+    color: colors.accent,
+    fontFamily: fonts.displayBold,
+    fontSize: 16,
+    letterSpacing: 0.4,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   rowText: {
     flex: 1,

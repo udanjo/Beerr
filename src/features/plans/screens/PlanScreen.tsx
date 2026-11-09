@@ -545,6 +545,8 @@ export function PlanScreen({
             single={replacingId !== null}
             confirmLabel={replacingId ? 'Substituir' : 'Adicionar'}
             preferredGroups={day?.muscleGroups}
+            similarTo={day?.exercises.find((exercise) => exercise.id === replacingId)?.libraryId}
+            excludeIds={day?.exercises.flatMap((exercise) => (exercise.libraryId ? [exercise.libraryId] : []))}
             onConfirm={handlePickerConfirm}
             onClose={closePicker}
           />
