@@ -10,6 +10,8 @@ export interface SessionExercise {
   libraryId?: string;
   /** Exercício por tempo: `sets[].reps` são segundos. */
   timed?: boolean;
+  /** Carga por lado; ausente = peso total. */
+  unilateral?: boolean;
   /** Apenas as séries marcadas como feitas. */
   sets: SessionSet[];
 }

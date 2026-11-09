@@ -8,11 +8,14 @@ const STORAGE_KEY = '@beerr/settings';
 interface StoredSettings {
   notifyExpiry?: boolean;
   allowEditDuringWorkout?: boolean;
+  /** Avisos de motivação (ex.: aumento de peso); ausente = ligado. */
+  motivation?: boolean;
 }
 
 export function useSettings() {
   const [notifyExpiry, setNotifyExpiryState] = useState(false);
   const [allowEditDuringWorkout, setAllowEditState] = useState(false);
+  const [motivation, setMotivationState] = useState(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
   // Cada chave grava mesclada com as demais; senão um interruptor apagaria o outro.
   const storedRef = useRef<StoredSettings>({});
@@ -29,6 +32,7 @@ export function useSettings() {
         const stored = raw ? (JSON.parse(raw) as StoredSettings) : {};
         storedRef.current = { ...stored, ...storedRef.current };
         setAllowEditState(Boolean(stored.allowEditDuringWorkout));
+        setMotivationState(stored.motivation !== false);
         const granted = await hasNotificationPermission();
         // Se o usuário revogou a permissão nos ajustes do sistema, o interruptor volta a desligado.
         setNotifyExpiryState(Boolean(stored.notifyExpiry) && granted);
@@ -59,7 +63,17 @@ export function useSettings() {
     [save],
   );
 
+  const setMotivation = useCallback(
+    (next: boolean) => {
+      setMotivationState(next);
+      save({ motivation: next });
+    },
+    [save],
+  );
+
   return {
+    motivation,
+    setMotivation,
     notifyExpiry,
     permissionDenied,
     setNotifyExpiry,

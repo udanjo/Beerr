@@ -56,6 +56,7 @@ export function ExerciseSheet({
   );
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [timed, setTimed] = useState(Boolean(exercise.timed));
+  const [unilateral, setUnilateral] = useState(Boolean(exercise.unilateral));
   // Guarda os valores do outro modo para não perdê-los ao alternar.
   const [stash, setStash] = useState<number[] | null>(null);
 
@@ -100,6 +101,7 @@ export function ExerciseSheet({
       restSeconds: Math.max(0, Math.round(toNumber(rest))),
       notes: notes.trim() || undefined,
       timed: timed || undefined,
+      unilateral: unilateral || undefined,
       sets,
     });
   };
@@ -148,7 +150,7 @@ export function ExerciseSheet({
         <View style={styles.tableHeader}>
           <Text style={[styles.headerText, styles.indexCol]}>SÉRIE</Text>
           <Text style={[styles.headerText, styles.inputCol]}>{timed ? 'TEMPO' : 'REPS'}</Text>
-          <Text style={[styles.headerText, styles.inputCol]}>PESO (KG)</Text>
+          <Text style={[styles.headerText, styles.inputCol]}>{unilateral ? 'POR LADO (KG)' : 'PESO (KG)'}</Text>
           <View style={styles.removeCol} />
         </View>
 
@@ -255,6 +257,8 @@ export function ExerciseSheet({
           reps={sets[editingIndex].reps}
           weight={sets[editingIndex].weight}
           timed={timed}
+          unilateral={unilateral}
+          onUnilateralChange={setUnilateral}
           onConfirm={(reps, weight) => updateSet(editingIndex, reps, weight)}
           onClose={() => setEditingIndex(null)}
         />

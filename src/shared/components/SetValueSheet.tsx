@@ -5,6 +5,7 @@ import { fontSize, fonts, radius, type Palette } from '../theme';
 import { useThemedStyles } from '../theme/ThemeContext';
 import { BottomSheet } from './BottomSheet';
 import { PrimaryButton } from './PrimaryButton';
+import { SegmentedTabs } from './SegmentedTabs';
 import { WheelPicker } from './WheelPicker';
 
 export const DEFAULT_REPS = 12;
@@ -24,6 +25,10 @@ interface SetValueSheetProps {
   weight: number;
   /** Exercício por tempo: o primeiro valor são segundos (passo de 5 s), não repetições. */
   timed?: boolean;
+  /** Peso por lado (ex.: halter em cada mão) em vez de total; vale para o exercício inteiro. */
+  unilateral?: boolean;
+  /** Quando informado, mostra o seletor Total / Por lado acima das repetições. */
+  onUnilateralChange?: (unilateral: boolean) => void;
   onConfirm: (reps: number, weight: number) => void;
   onClose: () => void;
 }
@@ -45,8 +50,19 @@ function buildValues(max: number, step: number, start: number, current: number):
   return values.sort((a, b) => a - b);
 }
 
-export function SetValueSheet({ title, hint, reps, weight, timed, onConfirm, onClose }: SetValueSheetProps) {
+export function SetValueSheet({
+  title,
+  hint,
+  reps,
+  weight,
+  timed,
+  unilateral = false,
+  onUnilateralChange,
+  onConfirm,
+  onClose,
+}: SetValueSheetProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
+  const [side, setSide] = useState(unilateral);
   const [repsValue, setRepsValue] = useState(reps);
   const [weightValue, setWeightValue] = useState(weight);
   const [isTyping, setIsTyping] = useState(false);
@@ -80,9 +96,28 @@ export function SetValueSheet({ title, hint, reps, weight, timed, onConfirm, onC
       </Text>
       {hint && <Text style={styles.hint}>{hint}</Text>}
 
+      {onUnilateralChange && (
+        <View style={styles.sideBox}>
+          <SegmentedTabs
+            options={[
+              { value: 'total', label: 'Total' },
+              { value: 'side', label: 'Por lado' },
+            ]}
+            value={side ? 'side' : 'total'}
+            onChange={(next) => {
+              setSide(next === 'side');
+              onUnilateralChange(next === 'side');
+            }}
+          />
+          <Text style={styles.sideHint}>
+            Total: peso somado. Por lado: cada halter ou mão. Vale para todas as séries.
+          </Text>
+        </View>
+      )}
+
       <View style={styles.headers}>
         <Text style={styles.headerText}>{timed ? 'TEMPO (S)' : 'REPS'}</Text>
-        <Text style={styles.headerText}>PESO (KG)</Text>
+        <Text style={styles.headerText}>{side ? 'PESO POR LADO (KG)' : 'PESO (KG)'}</Text>
       </View>
 
       {isTyping ? (
@@ -157,6 +192,16 @@ const makeStyles = (colors: Palette) =>
     fontSize: fontSize.sm,
     textAlign: 'center',
     marginBottom: 12,
+  },
+  sideBox: {
+    marginBottom: 12,
+    gap: 6,
+  },
+  sideHint: {
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
   },
   headers: {
     flexDirection: 'row',

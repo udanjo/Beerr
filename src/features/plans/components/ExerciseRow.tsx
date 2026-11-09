@@ -36,7 +36,7 @@ function summarize(exercise: Exercise): string {
       : `${range(sets.map((set) => set.reps))} reps`,
   );
   const weights = sets.map((set) => set.weight);
-  if (Math.max(...weights) > 0) parts.push(`${range(weights)} kg`);
+  if (Math.max(...weights) > 0) parts.push(`${range(weights)} kg${exercise.unilateral ? ' por lado' : ''}`);
   return parts.join(' • ');
 }
 

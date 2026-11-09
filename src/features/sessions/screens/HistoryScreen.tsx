@@ -110,7 +110,7 @@ function SessionCard({
             {' · '}
             {exercise.timed
               ? formatSeconds(Math.max(...exercise.sets.map((set) => set.reps)))
-              : `${Math.max(...exercise.sets.map((set) => set.weight))} kg`}
+              : `${Math.max(...exercise.sets.map((set) => set.weight))} kg${exercise.unilateral ? ' por lado' : ''}`}
           </Text>
         </View>
       ))}

@@ -86,6 +86,8 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
   const [focusRequest, setFocusRequest] = useState<{ planId: string; nonce: number } | null>(null);
   const [planUpdate, setPlanUpdate] = useState<PlanUpdateRequest | null>(null);
   const {
+    motivation,
+    setMotivation,
     notifyExpiry,
     permissionDenied,
     setNotifyExpiry,
@@ -229,6 +231,8 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
             onToggleNotifyExpiry={setNotifyExpiry}
             allowEditDuringWorkout={allowEditDuringWorkout}
             onToggleAllowEdit={setAllowEditDuringWorkout}
+            motivation={motivation}
+            onToggleMotivation={setMotivation}
             onClose={() => setSettingsOpen(false)}
           />
         </View>
@@ -242,6 +246,7 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
             plan={training.plan}
             day={training.day}
             allowEdit={allowEditDuringWorkout}
+            motivation={motivation}
             lastSetsFor={lastSetsFor}
             onUpdatePlan={(exercises) =>
               setPlanUpdate((current) => ({

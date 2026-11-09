@@ -1,7 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
-import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Alert,
+  Animated,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  Vibration,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../../../shared/components/PrimaryButton';
@@ -47,12 +58,16 @@ interface WorkoutSessionScreenProps {
   day: PlanDay;
   /** Configuração: permite trocar/adicionar exercícios durante o treino. */
   allowEdit: boolean;
-  lastSetsFor: (exerciseId: string, timed?: boolean) => SessionSet[] | undefined;
+  /** Configuração: avisos de motivação (ex.: aumento de peso). */
+  motivation: boolean;
+  lastSetsFor: (exerciseId: string, timed?: boolean, unilateral?: boolean) => SessionSet[] | undefined;
   onFinish: (session: WorkoutSession) => void;
   /** Grava no plano de origem a lista de exercícios do dia como ficou no treino. */
   onUpdatePlan: (exercises: Exercise[]) => void;
   onExit: () => void;
 }
+
+const CELEBRATION_TEXT = 'Você aumentou o peso! Parabéns!';
 
 type PickerState = { mode: 'add' } | { mode: 'replace'; index: number };
 
@@ -97,6 +112,7 @@ export function WorkoutSessionScreen({
   plan,
   day,
   allowEdit,
+  motivation,
   lastSetsFor,
   onFinish,
   onUpdatePlan,
@@ -114,17 +130,36 @@ export function WorkoutSessionScreen({
     () =>
       initialDraft?.items ??
       day.exercises.map((exercise) => {
-        const previous = lastSetsFor(exercise.id, exercise.timed);
+        const previous = lastSetsFor(exercise.id, exercise.timed, exercise.unilateral);
         return { exercise, sets: buildSets(exercise, previous), previous };
       }),
   );
+  // Exercícios que já geraram o aviso de aumento de peso (uma vez por exercício no treino).
+  const [celebratedIds, setCelebratedIds] = useState<string[]>(() => initialDraft?.celebratedIds ?? []);
+  const [celebration, setCelebration] = useState<number | null>(null);
+  const celebrationAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (celebration === null) return;
+    AccessibilityInfo.announceForAccessibility(CELEBRATION_TEXT);
+    celebrationAnim.setValue(0);
+    const animation = Animated.sequence([
+      Animated.timing(celebrationAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(2100),
+      Animated.timing(celebrationAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]);
+    animation.start(({ finished }) => {
+      if (finished) setCelebration(null);
+    });
+    return () => animation.stop();
+  }, [celebration, celebrationAnim]);
   // Cards com todas as séries feitas ficam recolhidos; aqui ficam os reabertos à mão.
   const [reopenedIds, setReopenedIds] = useState<string[]>(() => initialDraft?.reopenedIds ?? []);
 
   // Cada mudança é guardada no aparelho: se o app fechar, o treino volta como estava.
   useEffect(() => {
-    saveWorkoutDraft(uid, { plan, day, startedAt, items, reopenedIds });
-  }, [uid, plan, day, startedAt, items, reopenedIds]);
+    saveWorkoutDraft(uid, { plan, day, startedAt, items, reopenedIds, celebratedIds });
+  }, [uid, plan, day, startedAt, items, reopenedIds, celebratedIds]);
   const [editing, setEditing] = useState<{ exerciseIndex: number; setIndex: number } | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const timer = useRestTimer();
@@ -200,7 +235,22 @@ export function WorkoutSessionScreen({
       const finishedId = next[exerciseIndex].exercise.id;
       setReopenedIds((current) => current.filter((id) => id !== finishedId));
     }
-    if (justCompleted) Vibration.vibrate(20);
+    // Aviso de progressão: peso maior que o da mesma série no último treino (mesmo modo), 1x por exercício.
+    const progressed = next[exerciseIndex];
+    const previousSets = items[exerciseIndex].previous;
+    const previousSet = previousSets?.[setIndex] ?? previousSets?.[previousSets.length - 1];
+    const celebrate =
+      motivation &&
+      justCompleted &&
+      !progressed.exercise.timed &&
+      previousSet !== undefined &&
+      progressed.sets[setIndex].weight > previousSet.weight &&
+      !celebratedIds.includes(progressed.exercise.id);
+    if (celebrate) {
+      setCelebratedIds((current) => [...current, progressed.exercise.id]);
+      setCelebration(Date.now());
+    }
+    if (justCompleted) Vibration.vibrate(celebrate ? 40 : 20);
     const allDone = next.every((item) => item.sets.every((set) => set.done));
     if (justCompleted && !allDone) {
       const rest = next[exerciseIndex].exercise.restSeconds;
@@ -254,11 +304,22 @@ export function WorkoutSessionScreen({
         reps: timed ? DEFAULT_SECONDS : DEFAULT_REPS,
       })),
     };
-    const previous = lastSetsFor(exercise.id, exercise.timed);
+    const previous = lastSetsFor(exercise.id, exercise.timed, exercise.unilateral);
     setItems((current) =>
       current.map((it, i) =>
         i !== exerciseIndex ? it : { ...it, exercise, sets: buildSets(exercise, previous), previous },
       ),
+    );
+  };
+
+  // Peso total x por lado vale para o exercício todo; só antes de concluir séries (mesma regra do modo tempo).
+  const setUnilateral = (exerciseIndex: number, unilateral: boolean) => {
+    const item = items[exerciseIndex];
+    if (Boolean(item.exercise.unilateral) === unilateral) return;
+    const exercise: Exercise = { ...item.exercise, unilateral: unilateral || undefined };
+    const previous = lastSetsFor(exercise.id, exercise.timed, unilateral);
+    setItems((current) =>
+      current.map((it, i) => (i !== exerciseIndex ? it : { ...it, exercise, previous })),
     );
   };
 
@@ -349,6 +410,7 @@ export function WorkoutSessionScreen({
         name: nameOf(exercise),
         libraryId: exercise.libraryId,
         timed: exercise.timed,
+        unilateral: exercise.unilateral,
         sets: sets
           .filter((set) => set.done)
           .map((set) => ({ weight: set.weight, reps: set.reps })),
@@ -564,7 +626,9 @@ export function WorkoutSessionScreen({
               <View style={styles.setHeader}>
                 <Text style={[styles.setHeaderText, styles.indexCol]}>SÉRIE</Text>
                 <Text style={[styles.setHeaderText, styles.headerCol]}>{item.exercise.timed ? 'TEMPO' : 'REPS'}</Text>
-                <Text style={[styles.setHeaderText, styles.headerCol]}>PESO (KG)</Text>
+                <Text style={[styles.setHeaderText, styles.headerCol]}>
+                  {item.exercise.unilateral ? 'POR LADO (KG)' : 'PESO (KG)'}
+                </Text>
                 <View style={styles.checkSpacer} />
               </View>
 
@@ -780,6 +844,27 @@ export function WorkoutSessionScreen({
         <PrimaryButton label="Finalizar treino" onPress={handleFinish} />
       </View>
 
+      {celebration !== null && (
+        <Animated.View
+          pointerEvents="none"
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={[
+            styles.celebration,
+            {
+              top: insets.top + 118,
+              opacity: celebrationAnim,
+              transform: [
+                { translateY: celebrationAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+              ],
+            },
+          ]}
+        >
+          <Ionicons name="trending-up" size={20} color={colors.onPrimary} />
+          <Text style={styles.celebrationText}>{CELEBRATION_TEXT}</Text>
+        </Animated.View>
+      )}
+
       <ExerciseDetailModal libraryId={howToId} onClose={() => setHowToId(null)} />
 
       <Modal visible={picker !== null} animationType="slide" onRequestClose={() => setPicker(null)}>
@@ -807,6 +892,12 @@ export function WorkoutSessionScreen({
           reps={editingItem.sets[editing.setIndex].reps}
           weight={editingItem.sets[editing.setIndex].weight}
           timed={editingItem.exercise.timed}
+          unilateral={Boolean(editingItem.exercise.unilateral)}
+          onUnilateralChange={
+            editingItem.sets.some((set) => set.done)
+              ? undefined
+              : (value) => setUnilateral(editing.exerciseIndex, value)
+          }
           onConfirm={(reps, weight) => updateSet(editing.exerciseIndex, editing.setIndex, reps, weight)}
           onClose={() => setEditing(null)}
         />
@@ -1054,6 +1145,23 @@ const makeStyles = (colors: Palette) =>
     fontFamily: fonts.displayBold,
     fontSize: 16,
     letterSpacing: 0.4,
+  },
+  celebration: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  celebrationText: {
+    color: colors.onPrimary,
+    fontFamily: fonts.displayBold,
+    fontSize: 17,
+    letterSpacing: 0.3,
   },
   removeText: {
     color: colors.danger,

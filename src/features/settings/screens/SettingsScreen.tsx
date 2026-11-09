@@ -54,6 +54,8 @@ interface SettingsScreenProps {
   onToggleNotifyExpiry: (next: boolean) => void;
   allowEditDuringWorkout: boolean;
   onToggleAllowEdit: (next: boolean) => void;
+  motivation: boolean;
+  onToggleMotivation: (next: boolean) => void;
   onClose: () => void;
 }
 
@@ -66,6 +68,8 @@ export function SettingsScreen({
   onToggleNotifyExpiry,
   allowEditDuringWorkout,
   onToggleAllowEdit,
+  motivation,
+  onToggleMotivation,
   onClose,
 }: SettingsScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
@@ -107,6 +111,21 @@ export function SettingsScreen({
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.white}
               accessibilityLabel="Editar treino durante a execução"
+            />
+          </View>
+          <View style={styles.cardRow}>
+            <View style={styles.cardText}>
+              <Text style={styles.cardTitle}>Acompanhamento motivacional</Text>
+              <Text style={styles.cardHint}>
+                Mostra um aviso rápido de parabéns quando você aumenta o peso de um exercício.
+              </Text>
+            </View>
+            <Switch
+              value={motivation}
+              onValueChange={onToggleMotivation}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
+              accessibilityLabel="Acompanhamento motivacional"
             />
           </View>
         </View>

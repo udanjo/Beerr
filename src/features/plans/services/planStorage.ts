@@ -35,6 +35,7 @@ function normalizeExercise(stored: StoredExercise): Exercise {
     restSeconds: stored.restSeconds ?? DEFAULT_REST_SECONDS,
     notes: stored.notes,
     timed: stored.timed,
+    unilateral: stored.unilateral,
   };
 }
 

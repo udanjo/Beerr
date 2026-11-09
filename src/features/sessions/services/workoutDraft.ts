@@ -25,6 +25,8 @@ export interface WorkoutDraft {
   startedAt: string;
   items: ExerciseProgress[];
   reopenedIds: string[];
+  /** Exercícios que já geraram o aviso de aumento de peso neste treino. */
+  celebratedIds?: string[];
 }
 
 const draftKey = (uid: string) => `@beerr/u/${uid}/activeWorkout`;

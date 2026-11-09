@@ -42,6 +42,8 @@ export interface Exercise {
   notes?: string;
   /** Exercício por tempo (ex.: prancha): em `sets[].reps` ficam os segundos de cada série. */
   timed?: boolean;
+  /** Carga por lado (ex.: halter em cada mão); ausente = peso total. Vale para todas as séries. */
+  unilateral?: boolean;
 }
 
 export const DEFAULT_SECONDS = 30;
