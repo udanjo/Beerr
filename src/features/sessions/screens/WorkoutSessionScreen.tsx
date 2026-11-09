@@ -223,6 +223,45 @@ export function WorkoutSessionScreen({
     );
   };
 
+  // Remove a última série ainda pendente; sempre sobra ao menos uma série.
+  const removeSet = (exerciseIndex: number) => {
+    const item = items[exerciseIndex];
+    if (item.sets.length <= 1) return;
+    let target = -1;
+    item.sets.forEach((set, j) => {
+      if (!set.done) target = j;
+    });
+    if (target < 0) return;
+    if (isTimerOn(item.exercise.id, target)) setTimer.cancel();
+    setItems((current) =>
+      current.map((it, i) =>
+        i !== exerciseIndex ? it : { ...it, sets: it.sets.filter((_, j) => j !== target) },
+      ),
+    );
+    Vibration.vibrate(10);
+  };
+
+  // Alterna repetições/tempo; só antes de concluir séries, para não misturar segundos e reps.
+  const switchMode = (exerciseIndex: number, timed: boolean) => {
+    const item = items[exerciseIndex];
+    if (Boolean(item.exercise.timed) === timed || item.sets.some((set) => set.done)) return;
+    if (setTimer.target?.exerciseId === item.exercise.id) setTimer.cancel();
+    const exercise: Exercise = {
+      ...item.exercise,
+      timed: timed || undefined,
+      sets: item.exercise.sets.map((set) => ({
+        ...set,
+        reps: timed ? DEFAULT_SECONDS : DEFAULT_REPS,
+      })),
+    };
+    const previous = lastSetsFor(exercise.id, exercise.timed);
+    setItems((current) =>
+      current.map((it, i) =>
+        i !== exerciseIndex ? it : { ...it, exercise, sets: buildSets(exercise, previous), previous },
+      ),
+    );
+  };
+
   // Marcar todas não dispara o descanso: quem usa já terminou o exercício.
   const markAll = (exerciseIndex: number) => {
     const finishedId = items[exerciseIndex]?.exercise.id;
@@ -500,6 +539,28 @@ export function WorkoutSessionScreen({
                 </View>
               )}
 
+              {!item.sets.some((set) => set.done) && (
+                <View style={styles.modeRow}>
+                  {([false, true] as const).map((mode) => {
+                    const selected = Boolean(item.exercise.timed) === mode;
+                    return (
+                      <Pressable
+                        key={String(mode)}
+                        onPress={() => switchMode(exerciseIndex, mode)}
+                        style={[styles.modeOption, selected && styles.modeOptionSelected]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={mode ? 'Exercício por tempo' : 'Exercício por repetições'}
+                      >
+                        <Text style={[styles.modeText, selected && styles.modeTextSelected]}>
+                          {mode ? 'POR TEMPO' : 'REPETIÇÕES'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
               <View style={styles.setHeader}>
                 <Text style={[styles.setHeaderText, styles.indexCol]}>SÉRIE</Text>
                 <Text style={[styles.setHeaderText, styles.headerCol]}>{item.exercise.timed ? 'TEMPO' : 'REPS'}</Text>
@@ -629,6 +690,22 @@ export function WorkoutSessionScreen({
                   <Ionicons name="add" size={20} color={colors.accent} />
                   <Text style={styles.addText}>ADICIONAR SÉRIE</Text>
                 </Pressable>
+                {(() => {
+                  const canRemove = item.sets.length > 1 && item.sets.some((set) => !set.done);
+                  return (
+                    <Pressable
+                      onPress={() => removeSet(exerciseIndex)}
+                      disabled={!canRemove}
+                      style={[styles.actionButton, !canRemove && styles.moveDisabled]}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: !canRemove }}
+                      accessibilityLabel="Remover a última série pendente"
+                    >
+                      <Ionicons name="remove" size={20} color={colors.danger} />
+                      <Text style={styles.removeText}>REMOVER</Text>
+                    </Pressable>
+                  );
+                })()}
                 <Pressable
                   onPress={() => markAll(exerciseIndex)}
                   style={styles.actionButton}
@@ -977,6 +1054,36 @@ const makeStyles = (colors: Palette) =>
     fontFamily: fonts.displayBold,
     fontSize: 16,
     letterSpacing: 0.4,
+  },
+  removeText: {
+    color: colors.danger,
+    fontFamily: fonts.displayBold,
+    fontSize: 16,
+    letterSpacing: 0.4,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  modeOption: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  modeOptionSelected: {
+    backgroundColor: colors.primary,
+  },
+  modeText: {
+    color: colors.text,
+    fontFamily: fonts.displayBold,
+    fontSize: 16,
+  },
+  modeTextSelected: {
+    color: colors.onPrimary,
   },
   markText: {
     color: colors.text,
