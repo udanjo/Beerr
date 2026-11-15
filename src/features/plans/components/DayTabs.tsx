@@ -9,12 +9,16 @@ import { displayDayLabel, MAX_DAYS, type PlanDay } from '../types';
 interface DayTabsProps {
   days: PlanDay[];
   activeDayId: string;
+  /** Dias já feitos no ciclo atual (ganham um check); continuam tocáveis. */
+  doneIds?: Set<string>;
+  /** Próximo dia sugerido (contorno discreto). */
+  nextId?: string;
   onSelect: (dayId: string) => void;
   /** Quando informado, mostra o botão "+" para criar um novo treino. */
   onAdd?: () => void;
 }
 
-export function DayTabs({ days, activeDayId, onSelect, onAdd }: DayTabsProps) {
+export function DayTabs({ days, activeDayId, doneIds, nextId, onSelect, onAdd }: DayTabsProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const scrollRef = useRef<ScrollViewInstance>(null);
   const previousCount = useRef(days.length);
@@ -36,15 +40,42 @@ export function DayTabs({ days, activeDayId, onSelect, onAdd }: DayTabsProps) {
     >
       {days.map((day) => {
         const selected = day.id === activeDayId;
+        const done = doneIds?.has(day.id) ?? false;
+        const next = day.id === nextId && !done && (doneIds?.size ?? 0) > 0;
         return (
           <Pressable
             key={day.id}
             onPress={() => onSelect(day.id)}
-            style={[styles.tab, selected && styles.tabSelected]}
+            style={[
+              styles.tab,
+              selected && styles.tabSelected,
+              next && styles.tabNext,
+              (done || next) && styles.tabWithIcon,
+            ]}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            accessibilityLabel={`Treino ${displayDayLabel(day.label)}`}
+            accessibilityLabel={`Treino ${displayDayLabel(day.label)}${
+              done ? ', feito neste ciclo' : next ? ', próximo' : ''
+            }`}
           >
+            {done && (
+              <Ionicons
+                name="checkmark-circle"
+                size={16}
+                color={colors.accent}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+            )}
+            {next && (
+              <Ionicons
+                name="ellipse-outline"
+                size={16}
+                color={colors.accent}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+            )}
             <Text
               style={[styles.label, selected && styles.labelSelected]}
               numberOfLines={1}
@@ -83,10 +114,21 @@ const makeStyles = (colors: Palette) =>
     minWidth: 80,
     maxWidth: 180,
     minHeight: 44,
+    flexDirection: 'row',
+    gap: 6,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
     borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  tabNext: {
+    borderColor: colors.accent,
+  },
+  // Com ícone, menos padding para a aba não "pular" de largura ao concluir um dia.
+  tabWithIcon: {
+    paddingHorizontal: 14,
   },
   tabSelected: {
     backgroundColor: colors.surfaceAlt,
@@ -108,6 +150,7 @@ const makeStyles = (colors: Palette) =>
     paddingHorizontal: 16,
     borderRadius: radius.pill,
     borderWidth: 1,
+    borderStyle: 'dashed',
     borderColor: colors.accent,
   },
   addLabel: {

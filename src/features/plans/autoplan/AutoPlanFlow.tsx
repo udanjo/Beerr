@@ -44,6 +44,8 @@ const EXPIRY_PRESETS = [
 ];
 
 interface AutoPlanFlowProps {
+  /** Plano ativo atual: o novo evita repetir os mesmos exercícios. */
+  previousPlan?: Plan | null;
   onSave: (plan: Plan) => void;
   onClose: () => void;
 }
@@ -53,14 +55,18 @@ interface Generated {
   notices: string[];
 }
 
-function generate(answers: AutoPlanAnswers, variation: number): Generated | null {
-  const { spec, notices } = generatePlanLocal(answers, new Date(), variation);
+function generate(
+  answers: AutoPlanAnswers,
+  variation: number,
+  avoidIds: ReadonlySet<string>,
+): Generated | null {
+  const { spec, notices } = generatePlanLocal(answers, new Date(), variation, avoidIds);
   const { plan } = buildPlanFromSpec(spec);
   return plan ? { plan, notices } : null;
 }
 
 /** Tela cheia: aviso de saúde, 9 perguntas, resumo e revisão do plano gerado por regras locais. */
-export function AutoPlanFlow({ onSave, onClose }: AutoPlanFlowProps) {
+export function AutoPlanFlow({ previousPlan, onSave, onClose }: AutoPlanFlowProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [healthAck, setHealthAck] = useState<boolean | null>(null);
@@ -122,7 +128,10 @@ export function AutoPlanFlow({ onSave, onClose }: AutoPlanFlowProps) {
   }, [title, healthAck]);
 
   const startGeneration = (nextVariation: number) => {
-    const result = generate(answers, nextVariation);
+    const avoidIds = new Set(
+      (previousPlan?.days ?? []).flatMap((d) => d.exercises.flatMap((e) => (e.libraryId ? [e.libraryId] : []))),
+    );
+    const result = generate(answers, nextVariation, avoidIds);
     setVariation(nextVariation);
     if (!result) {
       setFailed(true);

@@ -193,6 +193,7 @@ export function AppShell({ uid, cloud, email, onSignOut }: AppShellProps) {
       <View style={[StyleSheet.absoluteFill, tab !== 'plan' && styles.hidden]}>
         <PlanScreen
           uid={uid}
+          sessions={sessions}
           backupAttention={backup.needsAttention}
           bottomInset={bottomInset}
           onStartTraining={(plan, day) => setTraining({ plan, day })}

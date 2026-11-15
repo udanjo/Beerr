@@ -26,6 +26,8 @@ import { DayEditSheet } from '../components/DayEditSheet';
 import { DayTabs } from '../components/DayTabs';
 import { ExerciseRow } from '../components/ExerciseRow';
 import { ExerciseSheet } from '../components/ExerciseSheet';
+import { currentCycle } from '../../sessions/services/dayCycle';
+import type { WorkoutSession } from '../../sessions/types';
 import { AutoPlanFlow } from '../autoplan/AutoPlanFlow';
 import { PlanForm } from '../components/PlanForm';
 import { ExpirySheet } from '../components/ExpirySheet';
@@ -38,6 +40,8 @@ import { displayDayLabel, type Exercise, type NewPlan, type Plan, type PlanDay }
 interface PlanScreenProps {
   /** Conta dona dos planos (chave de armazenamento). */
   uid: string;
+  /** Histórico (mais recente primeiro): marca os dias já feitos no ciclo. */
+  sessions: WorkoutSession[];
   /** Backup parado há muito tempo ou com erro: mostra um ponto na engrenagem. */
   backupAttention: boolean;
   /** Espaço reservado para a barra de abas flutuante. */
@@ -54,6 +58,7 @@ interface PlanScreenProps {
 
 export function PlanScreen({
   uid,
+  sessions,
   backupAttention,
   bottomInset,
   onStartTraining,
@@ -141,7 +146,18 @@ export function PlanScreen({
   }, [focusRequest]);
 
   const plan = plans.find((item) => item.id === selectedPlanId) ?? currentPlans[0] ?? null;
-  const day = plan?.days.find((item) => item.id === selectedDayId) ?? plan?.days[0] ?? null;
+  const cycle = plan ? currentCycle(plan.id, plan.days, sessions) : null;
+  const day =
+    plan?.days.find((item) => item.id === selectedDayId) ??
+    plan?.days.find((item) => item.id === cycle?.nextId) ??
+    plan?.days[0] ??
+    null;
+
+  // Treino novo salvo (ou histórico carregado): volta a sugerir o próximo dia do ciclo.
+  const latestSessionId = sessions[0]?.id;
+  useEffect(() => {
+    setSelectedDayId(null);
+  }, [latestSessionId]);
   const renewingPlan = plans.find((item) => item.id === renewingId) ?? null;
   const renewingExpired = renewingPlan !== null && isExpired(renewingPlan, now);
   const editingDay = plan?.days.find((item) => item.id === editingDayId) ?? null;
@@ -371,6 +387,8 @@ export function PlanScreen({
           <DayTabs
             days={plan.days}
             activeDayId={day.id}
+            doneIds={cycle?.doneIds}
+            nextId={cycle?.nextId ?? undefined}
             onSelect={setSelectedDayId}
             onAdd={handleAddDay}
           />
@@ -534,7 +552,7 @@ export function PlanScreen({
       </Modal>
 
       <Modal visible={isAutoOpen} animationType="slide" onRequestClose={() => setIsAutoOpen(false)}>
-        {isAutoOpen && <AutoPlanFlow onSave={handleSaveAutoPlan} onClose={() => setIsAutoOpen(false)} />}
+        {isAutoOpen && <AutoPlanFlow previousPlan={plan} onSave={handleSaveAutoPlan} onClose={() => setIsAutoOpen(false)} />}
       </Modal>
 
       <Modal visible={isPickerOpen} animationType="slide" onRequestClose={closePicker}>

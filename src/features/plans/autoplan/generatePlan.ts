@@ -224,6 +224,8 @@ export function generatePlanLocal(
   answers: AutoPlanAnswers,
   now: Date = new Date(),
   variation = 0,
+  /** Exercícios (libraryId) do plano anterior: ficam por último na fila para o novo plano mudar. */
+  avoidIds: ReadonlySet<string> = new Set(),
 ): GenerateResult {
   const notices: string[] = [];
   const total = TOTAL_BY_MINUTES[answers.minutes] ?? 6;
@@ -238,7 +240,10 @@ export function generatePlanLocal(
     if (!cache.has(group)) {
       const { list, relaxed } = candidates(group, answers);
       if (relaxed) relaxedGroups.push(group);
-      cache.set(group, list);
+      // Os do plano anterior só entram se faltarem opções novas (sort estável preserva a ordem).
+      const fresh = list.filter((item) => !avoidIds.has(item.id));
+      const repeated = list.filter((item) => avoidIds.has(item.id));
+      cache.set(group, [...fresh, ...repeated]);
     }
     return cache.get(group) as Candidate[];
   };

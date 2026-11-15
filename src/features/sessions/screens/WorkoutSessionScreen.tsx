@@ -239,12 +239,17 @@ export function WorkoutSessionScreen({
     const progressed = next[exerciseIndex];
     const previousSets = items[exerciseIndex].previous;
     const previousSet = previousSets?.[setIndex] ?? previousSets?.[previousSets.length - 1];
+    // Só compara com treino anterior no mesmo modo (total/por lado). Sem histórico, usa o maior peso das
+    // séries já feitas neste treino; o peso do plano não conta (pode ter sido editado à mão).
+    const doneWeights = progressed.sets.filter((set, j) => j !== setIndex && set.done).map((set) => set.weight);
+    const baseline =
+      previousSet?.weight ?? (previousSets === undefined && doneWeights.length > 0 ? Math.max(...doneWeights) : 0);
     const celebrate =
       motivation &&
       justCompleted &&
       !progressed.exercise.timed &&
-      previousSet !== undefined &&
-      progressed.sets[setIndex].weight > previousSet.weight &&
+      baseline > 0 &&
+      progressed.sets[setIndex].weight > baseline &&
       !celebratedIds.includes(progressed.exercise.id);
     if (celebrate) {
       setCelebratedIds((current) => [...current, progressed.exercise.id]);
@@ -312,7 +317,7 @@ export function WorkoutSessionScreen({
     );
   };
 
-  // Peso total x por lado vale para o exercício todo; só antes de concluir séries (mesma regra do modo tempo).
+  // Peso total x por lado vale para o exercício todo e pode mudar a qualquer momento (não altera as cargas já digitadas).
   const setUnilateral = (exerciseIndex: number, unilateral: boolean) => {
     const item = items[exerciseIndex];
     if (Boolean(item.exercise.unilateral) === unilateral) return;
@@ -895,11 +900,7 @@ export function WorkoutSessionScreen({
           weight={editingItem.sets[editing.setIndex].weight}
           timed={editingItem.exercise.timed}
           unilateral={Boolean(editingItem.exercise.unilateral)}
-          onUnilateralChange={
-            editingItem.sets.some((set) => set.done)
-              ? undefined
-              : (value) => setUnilateral(editing.exerciseIndex, value)
-          }
+          onUnilateralChange={(value) => setUnilateral(editing.exerciseIndex, value)}
           onConfirm={(reps, weight) => updateSet(editing.exerciseIndex, editing.setIndex, reps, weight)}
           onClose={() => setEditing(null)}
         />
