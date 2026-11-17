@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { formatDuration } from '../../features/plans/types';
 import { fontSize, fonts, radius, type Palette } from '../theme';
 import { useThemedStyles } from '../theme/ThemeContext';
 import { BottomSheet } from './BottomSheet';
@@ -12,8 +13,7 @@ export const DEFAULT_REPS = 12;
 export const DEFAULT_WEIGHT = 0;
 
 const MAX_REPS = 100;
-const MAX_SECONDS = 600;
-const SECONDS_STEP = 5;
+const MAX_SECONDS = 10800;
 const MAX_WEIGHT = 300;
 const WEIGHT_STEP = 1;
 
@@ -23,7 +23,7 @@ interface SetValueSheetProps {
   hint?: string;
   reps: number;
   weight: number;
-  /** Exercício por tempo: o primeiro valor são segundos (passo de 5 s), não repetições. */
+  /** Exercício por tempo: o primeiro valor é a duração em segundos (até 3 h), não repetições. */
   timed?: boolean;
   /** Peso por lado (ex.: halter em cada mão) em vez de total; vale para o exercício inteiro. */
   unilateral?: boolean;
@@ -40,6 +40,17 @@ export function formatWeight(value: number): string {
 
 function parse(text: string): number {
   return Number(text.replace(',', '.')) || 0;
+}
+
+/**
+ * Durações da roda: de 5 em 5 s até 2 min, de 30 em 30 s até 10 min e de 1 em 1 min até o teto
+ * (uma roda só, sem 2000 itens). Valores salvos fora do passo continuam aparecendo.
+ */
+function buildDurations(current: number): number[] {
+  const values: number[] = [];
+  for (let value = 5; value <= MAX_SECONDS; value += value < 120 ? 5 : value < 600 ? 30 : 60) values.push(value);
+  if (!values.includes(current)) values.push(current);
+  return values.sort((a, b) => a - b);
 }
 
 /** Lista de valores da roda; inclui o valor atual mesmo se estiver fora do passo. */
@@ -67,23 +78,32 @@ export function SetValueSheet({
   const [weightValue, setWeightValue] = useState(weight);
   const [isTyping, setIsTyping] = useState(false);
   const [repsText, setRepsText] = useState('');
+  const [secondsText, setSecondsText] = useState('');
   const [weightText, setWeightText] = useState('');
 
   const repsValues = useMemo(
-    () => (timed ? buildValues(MAX_SECONDS, SECONDS_STEP, SECONDS_STEP, reps) : buildValues(MAX_REPS, 1, 1, reps)),
+    () => (timed ? buildDurations(reps) : buildValues(MAX_REPS, 1, 1, reps)),
     [reps, timed],
   );
   const weightValues = useMemo(() => buildValues(MAX_WEIGHT, WEIGHT_STEP, 0, weight), [weight]);
 
   const startTyping = () => {
-    setRepsText(String(repsValue));
+    if (timed) {
+      setRepsText(String(Math.floor(repsValue / 60)));
+      setSecondsText(String(repsValue % 60));
+    } else {
+      setRepsText(String(repsValue));
+    }
     setWeightText(weightValue > 0 ? formatWeight(weightValue) : '');
     setIsTyping(true);
   };
 
   const handleConfirm = () => {
     if (isTyping) {
-      onConfirm(Math.min(timed ? MAX_SECONDS : 999, Math.max(1, Math.round(parse(repsText)))), Math.max(0, parse(weightText)));
+      const typed = timed
+        ? Math.round(parse(repsText)) * 60 + Math.min(59, Math.round(parse(secondsText)))
+        : Math.round(parse(repsText));
+      onConfirm(Math.min(timed ? MAX_SECONDS : 999, Math.max(1, typed)), Math.max(0, parse(weightText)));
     } else {
       onConfirm(repsValue, weightValue);
     }
@@ -116,7 +136,7 @@ export function SetValueSheet({
       )}
 
       <View style={styles.headers}>
-        <Text style={styles.headerText}>{timed ? 'TEMPO (S)' : 'REPS'}</Text>
+        <Text style={styles.headerText}>{timed ? 'DURAÇÃO' : 'REPS'}</Text>
         <Text style={styles.headerText}>{side ? 'PESO POR LADO (KG)' : 'PESO (KG)'}</Text>
       </View>
 
@@ -129,8 +149,23 @@ export function SetValueSheet({
             keyboardType="number-pad"
             maxLength={3}
             selectTextOnFocus
-            accessibilityLabel={timed ? 'Segundos' : 'Repetições'}
+            placeholder={timed ? 'min' : undefined}
+            placeholderTextColor={colors.textMuted}
+            accessibilityLabel={timed ? 'Minutos' : 'Repetições'}
           />
+          {timed && (
+            <TextInput
+              style={styles.typedInput}
+              value={secondsText}
+              onChangeText={setSecondsText}
+              keyboardType="number-pad"
+              maxLength={2}
+              placeholder="s"
+              placeholderTextColor={colors.textMuted}
+              selectTextOnFocus
+              accessibilityLabel="Segundos"
+            />
+          )}
           <TextInput
             style={styles.typedInput}
             value={weightText}
@@ -146,10 +181,11 @@ export function SetValueSheet({
       ) : (
         <View style={styles.wheels}>
           <WheelPicker
-            label={timed ? 'Segundos' : 'Repetições'}
+            label={timed ? 'Duração' : 'Repetições'}
             values={repsValues}
             value={repsValue}
             onChange={setRepsValue}
+            format={timed ? formatDuration : undefined}
           />
           <WheelPicker
             label="Peso em quilos"

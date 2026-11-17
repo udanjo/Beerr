@@ -10,6 +10,7 @@ import {
   EMPTY_TOTALS,
   addDays,
   dayKey,
+  monthRange,
   setsByGroup,
   startOfWeek,
   totalsByDay,
@@ -29,6 +30,11 @@ const METRICS: { value: Metric; label: string }[] = [
 
 const WEEKDAY_LABELS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 const WEEKDAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const VIEWS = [
+  { value: 'week' as const, label: 'Semana' },
+  { value: 'month' as const, label: 'Mês' },
+];
+const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 const CHART_HEIGHT = 120;
@@ -77,7 +83,9 @@ function describeBar(metric: Metric, dayName: string, value: number): string {
 export function ProgressScreen({ sessions, bottomInset }: ProgressScreenProps) {
   const { colors, styles } = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
+  const [view, setView] = useState<'week' | 'month'>('week');
   const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
   const [metric, setMetric] = useState<Metric>('minutes');
   const [showAllGroups, setShowAllGroups] = useState(false);
 
@@ -97,7 +105,25 @@ export function ProgressScreen({ sessions, bottomInset }: ProgressScreenProps) {
   const maxValue = Math.max(...values, 0);
   const trainedCount = dayTotals.filter((item) => item.sets > 0).length;
 
-  const groups = useMemo(() => setsByGroup(sessions, weekStart), [sessions, weekStart.getTime()]);
+  const isMonth = view === 'month';
+  const { first: monthFirst, last: monthLast } = monthRange(today, monthOffset);
+  const rangeStart = isMonth ? monthFirst : weekStart;
+  const rangeEnd = isMonth ? monthLast : weekEnd;
+  const monthCells: (Date | null)[] = [
+    ...Array.from({ length: monthFirst.getDay() }, () => null),
+    ...Array.from({ length: monthLast.getDate() }, (_, index) => new Date(monthFirst.getFullYear(), monthFirst.getMonth(), index + 1)),
+  ];
+  const monthTrained = monthCells.filter((date) => date && (totals.get(dayKey(date))?.sets ?? 0) > 0).length;
+  const monthMinutes = monthCells.reduce(
+    (sum, date) => sum + (date ? totals.get(dayKey(date))?.minutes ?? 0 : 0),
+    0,
+  );
+  const todayKey = dayKey(today);
+
+  const groups = useMemo(
+    () => setsByGroup(sessions, rangeStart, rangeEnd),
+    [sessions, rangeStart.getTime(), rangeEnd.getTime()],
+  );
   const visibleGroups = showAllGroups ? groups : groups.slice(0, GROUPS_COLLAPSED);
   const maxGroup = groups.length > 0 ? groups[0][1] : 0;
 
@@ -114,6 +140,88 @@ export function ProgressScreen({ sessions, bottomInset }: ProgressScreenProps) {
           contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 16 }]}
           showsVerticalScrollIndicator={false}
         >
+          <SegmentedTabs options={VIEWS} value={view} onChange={setView} />
+
+          {isMonth ? (
+            <>
+              <View style={styles.weekNav}>
+                <Pressable
+                  onPress={() => setMonthOffset((current) => current - 1)}
+                  style={styles.navButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mês anterior"
+                >
+                  <Ionicons name="chevron-back" size={22} color={colors.text} />
+                </Pressable>
+                <Text style={styles.weekRange}>
+                  {MONTH_NAMES[monthFirst.getMonth()]} {monthFirst.getFullYear()}
+                </Text>
+                <Pressable
+                  onPress={() => setMonthOffset((current) => Math.min(0, current + 1))}
+                  disabled={monthOffset === 0}
+                  style={[styles.navButton, monthOffset === 0 && styles.navDisabled]}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: monthOffset === 0 }}
+                  accessibilityLabel="Próximo mês"
+                >
+                  <Ionicons name="chevron-forward" size={22} color={colors.text} />
+                </Pressable>
+              </View>
+
+              <View style={styles.monthGrid}>
+                {WEEKDAY_LABELS.map((label) => (
+                  <Text key={label} style={styles.monthWeekday}>
+                    {label.charAt(0)}
+                  </Text>
+                ))}
+                {monthCells.map((date, index) => {
+                  if (!date) return <View key={`blank-${index}`} style={styles.monthCell} />;
+                  const key = dayKey(date);
+                  const trained = (totals.get(key)?.sets ?? 0) > 0;
+                  const isToday = key === todayKey;
+                  const isFuture = key > todayKey;
+                  return (
+                    <View
+                      key={key}
+                      style={styles.monthCell}
+                      accessibilityLabel={`${WEEKDAY_NAMES[date.getDay()]} ${date.getDate()}, ${trained ? 'treinou' : 'sem treino'}`}
+                    >
+                      <View
+                        style={[
+                          styles.dayCircle,
+                          trained && styles.dayCircleTrained,
+                          isToday && !trained && styles.dayCircleToday,
+                        ]}
+                      >
+                        {trained ? (
+                          <Ionicons name="checkmark" size={18} color={colors.onPrimary} />
+                        ) : (
+                          <Text style={[styles.dayNumber, isFuture && styles.dayFuture]}>{date.getDate()}</Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <View style={styles.card}>
+                <View style={styles.summaryRow}>
+                  <View>
+                    <Text style={styles.summaryValue}>
+                      {monthTrained} {monthTrained === 1 ? 'dia treinado' : 'dias treinados'}
+                    </Text>
+                    <Text style={styles.summaryLabel}>No mês</Text>
+                  </View>
+                  <View style={styles.summaryRight}>
+                    <Text style={styles.summaryValue}>{formatMinutes(monthMinutes)}</Text>
+                    <Text style={styles.summaryLabel}>de treino</Text>
+                  </View>
+                </View>
+                {monthTrained === 0 && <Text style={styles.noTraining}>Sem treinos neste mês</Text>}
+              </View>
+            </>
+          ) : (
+          <>
           <View style={styles.weekNav}>
             <Pressable
               onPress={() => setWeekOffset((current) => current - 1)}
@@ -217,6 +325,8 @@ export function ProgressScreen({ sessions, bottomInset }: ProgressScreenProps) {
 
             <SegmentedTabs options={METRICS} value={metric} onChange={setMetric} />
           </View>
+          </>
+          )}
 
           {groups.length > 0 && (
             <View style={styles.section}>
@@ -311,6 +421,24 @@ const makeStyles = (colors: Palette) =>
     fontFamily: fonts.bodyMedium,
     fontSize: fontSize.md,
     textAlign: 'center',
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  monthWeekday: {
+    width: '14.2857%',
+    textAlign: 'center',
+    color: colors.textMuted,
+    fontFamily: fonts.displayBold,
+    fontSize: 14,
+    paddingBottom: 6,
+  },
+  monthCell: {
+    width: '14.2857%',
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   weekStrip: {
     flexDirection: 'row',

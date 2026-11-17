@@ -101,16 +101,15 @@ export function weeklyStreak(trainedDays: Set<string>, today: Date): number {
   return streak;
 }
 
-/** Séries feitas por grupo muscular nos treinos da semana; exercícios sem biblioteca ficam de fora. */
-export function setsByGroup(sessions: WorkoutSession[], weekStart: Date): [MuscleGroup, number][] {
-  const start = weekStart.getTime();
-  const end = start + 7 * DAY_MS + DAY_MS; // folga para o horário de verão
+/** Séries feitas por grupo muscular nos treinos de um intervalo de dias (inclusive); exercícios sem biblioteca ficam de fora. */
+export function setsByGroup(sessions: WorkoutSession[], firstDay: Date, lastDay: Date): [MuscleGroup, number][] {
+  const from = dayKey(firstDay);
+  const to = dayKey(lastDay);
   const counts = new Map<MuscleGroup, number>();
 
   for (const session of sessions) {
-    const finished = new Date(session.finishedAt);
-    const inWeek = dayKey(finished) >= dayKey(weekStart) && dayKey(finished) <= dayKey(addDays(weekStart, 6));
-    if (!inWeek || finished.getTime() > end) continue;
+    const key = dayKey(new Date(session.finishedAt));
+    if (key < from || key > to) continue;
 
     for (const exercise of session.exercises) {
       const group = exercise.libraryId ? getLibraryExercise(exercise.libraryId)?.group : undefined;
@@ -120,4 +119,12 @@ export function setsByGroup(sessions: WorkoutSession[], weekStart: Date): [Muscl
   }
 
   return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+/** Mês-calendário `offset` meses a partir do atual: primeiro e último dia (datas locais). */
+export function monthRange(today: Date, offset: number): { first: Date; last: Date } {
+  return {
+    first: new Date(today.getFullYear(), today.getMonth() + offset, 1),
+    last: new Date(today.getFullYear(), today.getMonth() + offset + 1, 0),
+  };
 }

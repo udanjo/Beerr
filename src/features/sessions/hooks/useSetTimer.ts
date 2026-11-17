@@ -2,6 +2,8 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 
+import { cancelTimerAlert, scheduleTimerAlert } from '../services/timerAlerts';
+
 const TICK_MS = 250;
 export const PREP_SECONDS = 3;
 const FINISH_VIBRATION = [0, 400, 200, 400];
@@ -107,6 +109,22 @@ export function useSetTimer(onDone: (target: SetTimerTarget) => void) {
     return () => clearInterval(timer);
     // `active` só é lido no instante do tick; a fase e o fim já estão nas dependências.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, phase, endsAt]);
+
+  // Com o app em segundo plano ou a tela bloqueada o JS para e o bip acima não toca: um aviso
+  // local do sistema (som + vibração) cobre o fim da série. Sai ao pausar, cancelar ou zerar.
+  useEffect(() => {
+    if (!running || phase !== 'running' || endsAt === undefined) return;
+    let cancelled = false;
+    let alertId: string | null = null;
+    scheduleTimerAlert((endsAt - Date.now()) / 1000, 'Tempo concluído', 'Sua série por tempo terminou.').then((id) => {
+      if (cancelled) cancelTimerAlert(id);
+      else alertId = id;
+    });
+    return () => {
+      cancelled = true;
+      cancelTimerAlert(alertId);
+    };
   }, [running, phase, endsAt]);
 
   const start = useCallback((target: SetTimerTarget, seconds: number, skipPrep = false) => {

@@ -51,7 +51,21 @@ export const DEFAULT_SECONDS = 30;
 /** "30 s", "1:00", "1:30": segundos no formato curto. */
 export function formatSeconds(total: number): string {
   if (total < 60) return `${total} s`;
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  if (total >= 3600) {
+    return `${Math.floor(total / 3600)}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+  }
+  return `${Math.floor(total / 60)}:${pad(total % 60)}`;
+}
+
+/** Duração para a roda de valores: "45 s", "25 min", "1:30", "1h05". */
+export function formatDuration(total: number): string {
+  if (total < 60) return `${total} s`;
+  if (total % 60 !== 0) return formatSeconds(total);
+  const minutes = total / 60;
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return rest === 0 ? `${minutes / 60}h` : `${Math.floor(minutes / 60)}h${String(rest).padStart(2, '0')}`;
 }
 
 export interface PlanDay {

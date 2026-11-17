@@ -2,6 +2,8 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 
+import { cancelTimerAlert, scheduleTimerAlert } from '../services/timerAlerts';
+
 const TICK_MS = 250;
 const FINISH_VIBRATION = [0, 400, 200, 400];
 const FINISH_SOUND = require('../../../../assets/rest-end.wav');
@@ -50,6 +52,21 @@ export function useRestTimer() {
     tick();
     const timer = setInterval(tick, TICK_MS);
     return () => clearInterval(timer);
+  }, [endsAt]);
+
+  // Aviso do sistema para o fim do descanso com o app em segundo plano ou a tela bloqueada.
+  useEffect(() => {
+    if (endsAt === null) return;
+    let cancelled = false;
+    let alertId: string | null = null;
+    scheduleTimerAlert((endsAt - Date.now()) / 1000, 'Descanso terminou', 'Hora da próxima série.').then((id) => {
+      if (cancelled) cancelTimerAlert(id);
+      else alertId = id;
+    });
+    return () => {
+      cancelled = true;
+      cancelTimerAlert(alertId);
+    };
   }, [endsAt]);
 
   const start = useCallback((seconds: number) => {
